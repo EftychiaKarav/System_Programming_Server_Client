@@ -18,6 +18,11 @@
 #include <features.h>
 #include <dirent.h>
 #include <stdint.h>
+#include <sys/socket.h>	     /* sockets */
+#include <netinet/in.h>	     /* internet sockets */
+#include <netdb.h>	         /* gethostbyaddr */
+#include <arpa/inet.h>
+
 
 #define TOTAL_ARGS_SERVER 9
 #define TOTAL_ARGS_CLIENT 7
