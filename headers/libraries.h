@@ -28,8 +28,10 @@
 #define TOTAL_ARGS_CLIENT 7
 #define MAX_PATH_LENGTH 4096
 
+extern int RUNNING;
 
 void Print_Error(char*);
+void Server_Job(int);
 
 
 #endif

@@ -13,24 +13,27 @@ int main(int argc, char* argv[]){
     //char directory[MAX_PATH_LENGTH] = {'\0'};
     DIR* dir_ptr = NULL;
     int socket_number = -1;
-    struct in_addr server_address;
-	struct hostent* server_entity = NULL;
-    struct sockaddr_in server;
-    struct sockaddr *serverptr = (struct sockaddr*)&server;
 
-    memset(&server_address, 0, sizeof(struct in_addr));
+    struct sockaddr_in server;
+    memset(&server, 0, sizeof(struct sockaddr_in));
+    socklen_t serverlen;
+    struct sockaddr *serverptr=(struct sockaddr *)&server;
+	struct hostent* server_entity = NULL;
+
+
+
 
     for(int i=1; i < TOTAL_ARGS_CLIENT; i+=2){
 
         if(!strcmp(argv[i], "-i")){
 	        /* IPV dot-number into  binary form (network byte order) */
-            if (inet_aton(argv[i+1], &server_address) == 0)
-                Print_Error("IP address is not valid");
-            if ((server_entity = gethostbyaddr((const char*)&server_address, sizeof(server_address), AF_INET)) == NULL){
+            // if (inet_aton(argv[i+1], &server_address) == 0)
+            //     Print_Error("IP address is not valid");
+            if ((server_entity = gethostbyaddr((const char*)&server.sin_addr.s_addr, sizeof(server.sin_addr.s_addr), AF_INET)) == NULL){
                 herror("Given IP-address could not be resolved\n");
                 exit(EXIT_FAILURE);
             }
-		    printf("IP-address:%s Resolved to: %s\n", argv[1],server_entity->h_name);
+		    printf("IP-address:%s Resolved to: %s\n", argv[i+1],server_entity->h_name);
         }
 
         else if(!strcmp(argv[i], "-p")){
@@ -52,18 +55,22 @@ int main(int argc, char* argv[]){
 
     /* create socket */
     if ((socket_number = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    	Print_Error("Error in creating socket");
+    	Print_Error("Client: Could not create socket");
 
     /* connect to server */
 
     server.sin_family = AF_INET;       /* Internet domain */
-    memcpy(&server.sin_addr, server_entity->h_addr, server_entity->h_length);
+    //memcpy(&server.sin_addr, server_entity->h_addr, server_entity->h_length);
     server.sin_port = port;         /* Server port */
     /* Initiate connection */
     if (connect(socket_number, serverptr, sizeof(server)) < 0)
 	   Print_Error("Client could not connect to Server");
     
     printf("Connecting to %s in port %d\n", argv[1], port);
+
+    while(1){
+
+    }
 
 
     exit(EXIT_SUCCESS);
