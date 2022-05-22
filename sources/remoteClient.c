@@ -16,7 +16,6 @@ int main(int argc, char* argv[]){
 
     struct sockaddr_in server;
     memset(&server, 0, sizeof(struct sockaddr_in));
-    socklen_t serverlen;
     struct sockaddr *serverptr=(struct sockaddr *)&server;
 	struct hostent* server_entity = NULL;
 
@@ -66,7 +65,7 @@ int main(int argc, char* argv[]){
     if (connect(socket_number, serverptr, sizeof(server)) < 0)
 	   Print_Error("Client could not connect to Server");
     
-    printf("Connecting to %s in port %d\n", argv[1], port);
+    printf("Connecting to %d in port %d\n", server.sin_addr.s_addr, port);
 
     while(1){
 

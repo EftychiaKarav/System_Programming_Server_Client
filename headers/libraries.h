@@ -22,6 +22,7 @@
 #include <netinet/in.h>	     /* internet sockets */
 #include <netdb.h>	         /* gethostbyaddr */
 #include <arpa/inet.h>
+#include <pthread.h>
 
 
 #define TOTAL_ARGS_SERVER 9
@@ -31,7 +32,8 @@
 extern int RUNNING;
 
 void Print_Error(char*);
-void Server_Job(int);
+void Print_Error_Value(char*, int);
+void* Server_Job(void*);
 
 
 #endif

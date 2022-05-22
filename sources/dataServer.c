@@ -66,10 +66,9 @@ int main(int argc, char* argv[]){
     server.sin_addr.s_addr = htonl(INADDR_ANY);
     server.sin_port = port;      /* The given port */
     
-    char IP[50] = {'\0'};
-    strcpy(IP, inet_ntoa(server.sin_addr));
-
-    printf("SERVER's IP is: %s   AND %d\n", IP, server.sin_addr.s_addr);
+    int value = 1;
+    setsockopt(socket_number, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(int));
+    printf("SERVER's IP is: %d\n", server.sin_addr.s_addr);
     /* Bind socket to address */
     if (bind(socket_number, serverptr, sizeof(server)) < 0)
         Print_Error("Server: Could not bind");
@@ -95,16 +94,15 @@ int main(int argc, char* argv[]){
         printf("Accepted connection from %s\n", client_entity->h_name);
     	printf("Accepted connection\n");
 
-        pid = fork();
-        if(pid < 0){
-            perror("FORK");
-            exit(EXIT_FAILURE);
+
+        pthread_t communication_thread;
+        int err, status;
+        if ((err = pthread_create(&communication_thread, NULL, Server_Job, (void*)(&new_socket_number))) != 0) { /* New thread */
+            Print_Error_Value("Error in pthread_create", err);
         }
-        if(pid == 0){   //client
-            close(socket_number);
-            Server_Job(new_socket_number);
-            exit(EXIT_SUCCESS);
-        }
+        printf("I am original thread %ld and I created thread %ld\n", 
+                pthread_self(), communication_thread);
+
 
     	close(new_socket_number); /* parent closes socket to client            */
 			/* must be closed before it gets re-assigned */
@@ -117,8 +115,17 @@ int main(int argc, char* argv[]){
 
 
 
-void Server_Job(int socket){
+void* Server_Job(void* arg){
 
+    int socket = *(int*)arg;
+    printf("NEW THREAD:  %ld\n", pthread_self());
+    int err;
+    if ((err = pthread_detach(pthread_self())) != 0) {/* Detach thread */
+       Print_Error_Value("Error in pthread_detach", err);
+    }
 
-    return;
+    sleep(10);
+    printf("THREAD %ld is exiting\n", pthread_self());
+    pthread_exit(NULL);
+
 }
