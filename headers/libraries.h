@@ -27,13 +27,22 @@
 
 #define TOTAL_ARGS_SERVER 9
 #define TOTAL_ARGS_CLIENT 7
-#define MAX_PATH_LENGTH 4096
+#define MAX_LENGTH 4096
+//#define DEFAULT_DIR "Documents"
+#define DEFAULT_DIR "mnt/d/DOCUMENTS/"
+#define WRONG_MSG "WRONG DIRECTORY NAME"
+#define ACK_MSG "ACK"
+#define FILES_SENT_MSG "TOTAL FILES SENT: "
+
+
 
 extern int RUNNING;
 
 void Print_Error(char*);
 void Print_Error_Value(char*, int);
 void* Server_Job(void*);
+void Client(int, char*);
+char* Extract_Files_From_Directory(char*);
 
 
 #endif
