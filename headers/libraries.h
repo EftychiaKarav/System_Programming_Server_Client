@@ -29,12 +29,12 @@
 #define TOTAL_ARGS_CLIENT 7
 #define MAX_LENGTH 4096
 //#define DEFAULT_DIR "Documents"
-#define DEFAULT_DIR "mnt/d/DOCUMENTS/"
+#define DEFAULT_DIR "/mnt/d/DOCUMENTS/"
 #define WRONG_MSG "WRONG DIRECTORY NAME"
 #define ACK_MSG "ACK"
-#define FILES_SENT_MSG "TOTAL FILES SENT: "
-
-
+#define FILES_SENT_MSG "TOTAL FILES TO SEND: "
+#define OUT_DIR "SERVER_COPY_" 
+#define TERMINATION_MSG "ALL FILES WERE TRANSFERED"
 
 extern int RUNNING;
 
@@ -42,7 +42,8 @@ void Print_Error(char*);
 void Print_Error_Value(char*, int);
 void* Server_Job(void*);
 void Client(int, char*);
-char* Extract_Files_From_Directory(char*);
+void Extract_Files_From_Directory(int, char*);  //maybe void 
+void Send_Files_to_Client();
 
 
 #endif

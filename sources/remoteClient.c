@@ -1,4 +1,5 @@
 #include "../headers/libraries.h"
+#include "../headers/Queue.h"
 
 
 int main(int argc, char* argv[]){
@@ -76,28 +77,83 @@ int main(int argc, char* argv[]){
 
 void Client(int socket, char* directory){
 
-    char buffer[MAX_LENGTH] = {'\0'};
+    void* buffer[MAX_LENGTH] = {'\0'};
     int num_bytes_read = -1, files_remaining = -1;
+
+    char* output_dir = (char*)calloc(strlen(OUT_DIR) + 6, sizeof(char)); //5 is for pid and 1 for '\0'
+
+    snprintf(output_dir, strlen(OUT_DIR) + 6, "%s%d%c", OUT_DIR, getpid(), '\0');
+    
+    struct stat dir_info;
+    memset(&dir_info, 0, sizeof(struct stat));
+    if (stat(output_dir, &dir_info) < 0){
+        if(mkdir(output_dir, 0744) == -1){
+            perror("CLIENT: Could not create new directory");
+            exit(EXIT_FAILURE);  
+        }
+    }
+    
+
+
+
+
+    printf("CLIENT SOCKET %d\n", socket);
     if (write(socket, directory, strlen(directory)) < 0)
         perror("CLIENT: Write directory name");
     
-    if((num_bytes_read = read(socket, buffer, MAX_LENGTH)) < 0){
+    if((num_bytes_read = read(socket, (char*)buffer, MAX_LENGTH)) < 0){
         perror("CLIENT: READ \"WRONG DIR NAME\" ");
     }
-    if(!strcmp(buffer, WRONG_MSG))
+    printf("%s\n", (char*)buffer);
+    if(!strcmp((char*)buffer, WRONG_MSG))
         exit(EXIT_FAILURE);
-    else if(!strncmp(buffer, FILES_SENT_MSG, strlen(FILES_SENT_MSG))){
-        num_bytes_read = num_bytes_read - strlen(FILES_SENT_MSG) - 1;  /* 1 is for "\n" */
-        char* num_files = (char*)calloc(num_bytes_read, sizeof(char));
-        memcpy(num_files, buffer + strlen(FILES_SENT_MSG), num_bytes_read);
+    else if(!strncmp((char*)buffer, FILES_SENT_MSG, strlen(FILES_SENT_MSG))){
+        printf("before num bytes read: %d\n", num_bytes_read);
+        num_bytes_read = num_bytes_read - strlen(FILES_SENT_MSG);  /* 1 is for "\n" */
+        printf("after num bytes read: %d\n", num_bytes_read);
+        char* num_files = (char*)calloc(num_bytes_read+1, sizeof(char));
+        memcpy(num_files, (char*)buffer + strlen(FILES_SENT_MSG), num_bytes_read);
         files_remaining = atoi(num_files);
         printf("I will receive %d files from server\n", files_remaining);
+        free(num_files);
     }
-    while(files_remaining){
+    //int waiting = 1;
+    do{
+        memset(buffer, '\0', MAX_LENGTH*sizeof(char*));
+
+        if((num_bytes_read = read(socket, (uint32_t*)buffer, sizeof(uint32_t))) < 0){
+            perror("CLIENT: READ file length ");
+        }
+        int file_length = ntohl(*(uint32_t*)buffer);
+        printf("WITHOUT: file length %d\t WITH: file length %d\n",  *(uint32_t*)buffer, file_length);
+
+        if((num_bytes_read = read(socket, (uint32_t*)buffer, sizeof(uint32_t))) < 0){
+            perror("CLIENT: READ file size ");
+        }
+        int file_size = ntohl(*(uint32_t*)buffer);
+
+        printf("WITHOUT: file size %d\t WITH: file size %d\n\n",  *(uint32_t*)buffer, file_size);
+        if((num_bytes_read = read(socket, (char*)buffer, file_length)) < 0){
+            perror("CLIENT: READ file name ");
+        }
+        char* path = (char*)calloc(file_length+1, sizeof(char));
+        memcpy(path, (char*)buffer, strlen((char*)buffer));
+        printf("CLIENT GOT path: %s \n", path);
+
+        /* CREATE FILE -- DELETE IT IF EXISTS */
+
+        if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
+            perror("CLIENT: Write ACK message");
 
 
+        /* GET THE CONTENT OF THE FILE*/
 
-    }
 
+        if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
+            perror("CLIENT: Write ACK message");
+        free(path);
+    }while(strcmp((char*)buffer, TERMINATION_MSG) != 0);
+
+    free(output_dir);
 
 }

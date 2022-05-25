@@ -51,7 +51,7 @@ run: all $(SERVER)
 #################################################################################
 
 clean:
-	rm -rf $(OBJECTS)
+	rm -rf $(OBJECTS) *COPY*
 	rm -f $(SERVER) $(CLIENT)
 
 #################################################################################
@@ -63,3 +63,7 @@ valgrind1: clean all $(SERVER)
 # commands:
 # 	sudo umount /mnt/d
 # 	sudo mount -t drvfs D: /mnt/d -o metadata
+
+# ./remoteClient -i 127.0.0.1 -p 8000 -d .
+# ./dataServer -p 8000 -q 8 -s 6 -b 1024
+# /mnt/d/SEMESTER_6/SYSPRO/System_Programming_Exec2_Server_Client

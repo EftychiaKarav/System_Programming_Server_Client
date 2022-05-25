@@ -1,11 +1,13 @@
 #include "../headers/libraries.h"
+#include "../headers/Queue.h"
 
 
 void* Server_Job(void* arg){
 
     int socket = *(int*)arg;
+    printf("socket server  is %d\n", socket);
     int num_bytes_read = -1;
-    char buffer[MAX_LENGTH] = '\0';
+    char buffer[MAX_LENGTH] = {'\0'};
     printf("NEW THREAD:  %ld\n", pthread_self());
     int err;
     if ((err = pthread_detach(pthread_self())) != 0) {/* Detach thread */
@@ -18,7 +20,7 @@ void* Server_Job(void* arg){
     char* path = (char*)calloc(strlen(DEFAULT_DIR) + strlen(buffer) + 1, sizeof(char));
     memcpy(path, DEFAULT_DIR, strlen(DEFAULT_DIR));
     memcpy(path + strlen(DEFAULT_DIR), buffer, strlen(buffer));
-
+    printf("path is : %s\n", path);
     DIR* dir_ptr = NULL;
     /* Open directory */
     if((dir_ptr = opendir(path)) == NULL ){
@@ -30,11 +32,27 @@ void* Server_Job(void* arg){
         printf("THREAD %ld is exiting\n", pthread_self());
         pthread_exit(NULL);    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!maybe change the value to indicate error
     }
-    
+    /* Close opened directory */
     if(closedir(dir_ptr) < 0 ){
         fprintf(stdout, "Cannot close %s directory\n", path);
         exit(EXIT_FAILURE);
     }
+
+    Extract_Files_From_Directory(socket, path);
+    QNode node = QueueNode_Create_Node(socket, TERMINATION_MSG);
+    Queue_Insert(Files_Queue, node);
+    //Queue_Print(Files_Queue);
+    char* mess = (char*)calloc(26, sizeof(char));
+    snprintf(mess, strlen(FILES_SENT_MSG) + 5, "%s%d", FILES_SENT_MSG, Queue_Size(Files_Queue));
+    printf("total:   %s\n", mess);
+    if(write(socket, mess, strlen(mess)) < 0){
+        perror("SERVER: WRITE \"TOTAL FILES TO SEND:\" ");
+    }
+    Send_Files_to_Client();
+
+
+
+
 
 
     sleep(10);
@@ -45,7 +63,9 @@ void* Server_Job(void* arg){
 
 
 
-char* Extract_Files_From_Directory(char* path){
+/******************************************************************************************************************/
+
+void Extract_Files_From_Directory(int socket, char* path){
 
     /* Save the type of the node; directory or regular file */
     struct stat node;
@@ -59,8 +79,6 @@ char* Extract_Files_From_Directory(char* path){
 
     /* test against the S_IFMT flag to get the first 4 bits of the node to determine the file type */
     mode_t outcome = node.st_mode & S_IFMT;   
-    
-
     if (outcome == S_IFDIR){    /* directory */
         
         DIR* dir_ptr = NULL;    // pointer to an opened directory
@@ -76,7 +94,7 @@ char* Extract_Files_From_Directory(char* path){
         char* curr_path = (char*)calloc(strlen(path)+ 1 + 1, sizeof(char));   //1 for '/' one for '\0'
         memcpy(curr_path, path, strlen(path));
         memcpy(curr_path + strlen(path), "/", 1);
-        printf("Directory name: %s\n", curr_path);
+        //printf("Directory name: %s\n", curr_path);
 
         /* Read directory */
         while ( (dir_entity = readdir(dir_ptr)) != NULL ){
@@ -91,7 +109,7 @@ char* Extract_Files_From_Directory(char* path){
                 
                 /* Recursion: input is the new path which is the path to the new item;
                 the function is called again with the new path and determines if the item is directory or regular file*/
-                final_path = Extract_Files_From_Directory(final_path);
+                Extract_Files_From_Directory(socket, final_path);
 
                 free(final_path);
             }
@@ -110,11 +128,99 @@ char* Extract_Files_From_Directory(char* path){
         
     }
     else if(outcome == S_IFREG){    //regular file 
-        printf("FILE name: %s\n", path);
+        //printf("FILE name: %s\n", path);
+        QNode node = QueueNode_Create_Node(socket, path);
+        Queue_Insert(Files_Queue, node);
     }
     /* return if item is a regular file */
-    return path;
+    return;
 }
+
+/*********************************************************************************************************************/
+
+
+void Send_Files_to_Client(){   //func for threads + mutexes
+
+    struct stat file_info;
+    char* buffer[MAX_LENGTH] = {'\0'};
+    while(Queue_Size(Files_Queue) != 0){
+
+        QNode popped_node = Queue_Pop(Files_Queue);
+        char* path_to_file = QueueNode_GetFileName(popped_node);
+        int socket = QueueNode_GetSocket(popped_node);
+        uint32_t file_length = -1;
+        uint32_t file_size = -1;
+
+        if(strcmp(path_to_file, TERMINATION_MSG) != 0){
+            memset(&file_info, '\0', sizeof(file_info));
+            /* find the size of the file */
+            if(stat(path_to_file, &file_info) < 0){
+                perror("SERVER: Could not get info for the file to process");
+                exit(EXIT_FAILURE);
+            }
+            printf("FILE IS: %s\n", path_to_file);
+
+            file_length = htonl(strlen(path_to_file));
+            printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
+            if(write(socket, &file_length, sizeof(uint32_t)) < 0){
+                perror("SERVER: WRITE file length");
+            }
+
+            file_size = htonl(file_info.st_size);
+            printf("WITHOUT: file size %ld\t WITH: file size %d\n\n",  file_info.st_size, file_size);
+            if(write(socket, &file_size, sizeof(uint32_t)) < 0){
+                perror("SERVER: WRITE file size");
+            }
+            if(write(socket, path_to_file, strlen(path_to_file)) < 0){
+                perror("SERVER: WRITE file name");
+            }
+        }
+        else{
+            file_length = htonl(strlen(path_to_file));
+            printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
+            if(write(socket, &file_length, sizeof(uint32_t)) < 0){
+                perror("SERVER: WRITE file length");
+            }
+
+            file_size = htonl(0);
+            printf("WITHOUT: file size %d\t WITH: file size %d\n\n",  file_size, file_size);
+            if(write(socket, &file_size, sizeof(uint32_t)) < 0){
+                perror("SERVER: WRITE file size");
+            }
+            if(write(socket, path_to_file, strlen(path_to_file)) < 0){
+                perror("SERVER: WRITE file name");
+            }
+
+        }
+
+        while((read(socket, buffer, strlen(ACK_MSG))) < 0){
+            perror("SERVER: Read ACK message from client");
+        }
+        if(strcmp(buffer, ACK_MSG) != 0){
+            Print_Error("SERVER: Could not receive ACK message from client");
+        }
+
+        /* SENDING THE FILE*/
+
+        while((read(socket, buffer, strlen(ACK_MSG))) < 0){
+            perror("SERVER: Read ACK message from client");
+        }
+        if(strcmp(buffer, ACK_MSG) != 0){
+            Print_Error("SERVER: Could not receive ACK message from client");
+        }
+
+        QueueNode_Delete(popped_node);
+    }
+
+
+
+}
+
+
+
+
+
+/********************************************************************************************************************/
 
 
 int main(int argc, char* argv[]){
@@ -163,13 +269,15 @@ int main(int argc, char* argv[]){
     }
 
     struct sockaddr_in server, client;
-    memset(&server, 0, sizeof(struct sockaddr_in));
-    memset(&client, 0, sizeof(struct sockaddr_in));
-
-    socklen_t clientlen;
+    socklen_t clientlen = 1;
     struct sockaddr *serverptr=(struct sockaddr *)&server;
     struct sockaddr *clientptr=(struct sockaddr *)&client;
     struct hostent* client_entity = NULL;
+
+    memset(&server, 0, sizeof(struct sockaddr_in));
+    memset(&client, 0, sizeof(struct sockaddr_in));
+
+
 
     /* Create socket */
     if ((socket_number = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -194,12 +302,17 @@ int main(int argc, char* argv[]){
     
     printf("Listening for connections to port %d\n", port);
 
-    int pid = -1;
+    if(!Queue_Exists(Files_Queue)){
+        Files_Queue = Queue_Initialize();
+    }
     while(RUNNING){
 
         /* accept connection */
-    	if ((new_socket_number = accept(socket_number, clientptr, &clientlen)) < 0)
-            Print_Error("Server could not accept connection");
+    	if ((new_socket_number = accept(socket_number, clientptr, &clientlen)) < 0){
+            perror("Server could not accept connection");
+            printf("errno is %d\n", errno);
+            exit(EXIT_FAILURE);
+        }
     	/* Find client's address */
     	if ((client_entity = gethostbyaddr((char *) &client.sin_addr.s_addr, sizeof(client.sin_addr.s_addr), client.sin_family)) == NULL){
             herror("Server could not resolve client's IP address");
@@ -208,10 +321,12 @@ int main(int argc, char* argv[]){
     	
         printf("Accepted connection from %s\n", client_entity->h_name);
     	printf("Accepted connection\n");
+        printf("new socket is %d\n", socket_number);
+        printf("new socket is %d\n", new_socket_number);
 
 
         pthread_t communication_thread;
-        int err, status;
+        int err;
         if ((err = pthread_create(&communication_thread, NULL, Server_Job, (void*)(&new_socket_number))) != 0) { /* New thread */
             Print_Error_Value("Error in pthread_create", err);
         }
@@ -219,8 +334,8 @@ int main(int argc, char* argv[]){
                 pthread_self(), communication_thread);
 
 
-    	close(new_socket_number); /* parent closes socket to client            */
-			/* must be closed before it gets re-assigned */
+    	// close(new_socket_number); /* parent closes socket to client            */
+		// 	/* must be closed before it gets re-assigned */
 
     }
 
