@@ -38,12 +38,23 @@
 
 extern int RUNNING;
 
+
+typedef struct Communication_Threads_Arguments{
+   int socket;
+   size_t block_size;
+
+}Commun_Threads_Args;
+
+
+
 void Print_Error(char*);
 void Print_Error_Value(char*, int);
+void Clear_Buffer(char*, int);
 void* Server_Job(void*);
 void Client(int, char*);
 void Extract_Files_From_Directory(int, char*);  //maybe void 
-void Send_Files_to_Client();
+void Send_Files_to_Client(size_t);
+int Resolve_FilePath(char*, char*);
 
 
 #endif

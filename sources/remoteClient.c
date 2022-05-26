@@ -2,6 +2,69 @@
 #include "../headers/Queue.h"
 
 
+int Resolve_FilePath(char* path, char* default_dir){
+
+    
+    char* start = path;
+    char* end = path;
+    char* temp_path = (char*)calloc(strlen(path)+strlen(default_dir)+ 1, sizeof(char));
+    memcpy(temp_path, default_dir, strlen(default_dir));
+    struct stat node_info;
+    int is_Directory = 1;
+    int new_file_fd = -1;
+
+    while(strlen(start) != 0){
+
+        end = strstr(start, "/");
+        if(end == NULL){
+            is_Directory = 0;
+            end = start + strlen(start) - 1;
+        }
+        memset(&node_info, 0, sizeof(struct stat));
+        memcpy(temp_path+strlen(temp_path), start, strlen(start) - strlen(end)+1);
+        if (stat(temp_path, &node_info) < 0){
+
+            if(is_Directory){
+                if(mkdir(temp_path, 0744) == -1){
+                    perror("CLIENT: Could not create new directory");
+                    exit(EXIT_FAILURE);  
+                }
+            }
+            else{
+                if ( (new_file_fd = open(temp_path, O_CREAT|O_RDWR, 0644)) == -1){
+                    perror("CLIENT: Creating new file");
+                    exit(EXIT_FAILURE);
+                }
+
+            }
+        }
+        else{
+            mode_t type = node_info.st_mode & S_IFMT;
+            if(type == S_IFREG){
+                if(unlink(temp_path) < 0){
+                    perror("CLIENT: Could not remove file");
+                    exit(EXIT_FAILURE);
+                }
+                if ( (new_file_fd = open(temp_path, O_CREAT|O_RDWR, 0644)) == -1){
+                    perror("CLIENT: (after unlink)Creating new file");
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+
+        start = end + 1;
+    }
+    
+    free(temp_path);
+    return new_file_fd;
+
+}
+
+
+/******************************************************************************************************************************/
+
+
+
 int main(int argc, char* argv[]){
 
 
@@ -95,7 +158,7 @@ void Client(int socket, char* directory){
     
 
 
-
+    size_t block_size = 0;
 
     printf("CLIENT SOCKET %d\n", socket);
     if (write(socket, directory, strlen(directory)) < 0)
@@ -116,41 +179,85 @@ void Client(int socket, char* directory){
         files_remaining = atoi(num_files);
         printf("I will receive %d files from server\n", files_remaining);
         free(num_files);
+    
+
+        if((num_bytes_read = read(socket, (uint32_t*)buffer, sizeof(uint32_t))) < 0){
+            perror("CLIENT: READ block size ");
+        }
+        block_size = ntohl(*(uint32_t*)buffer);
+        printf("WITHOUT: block size %d\t WITH: block size %ld\n",  *(uint32_t*)buffer, block_size);
+        
+        if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
+            perror("CLIENT: Write ACK message");
     }
+
     //int waiting = 1;
     do{
         memset(buffer, '\0', MAX_LENGTH*sizeof(char*));
 
-        if((num_bytes_read = read(socket, (uint32_t*)buffer, sizeof(uint32_t))) < 0){
+        while((num_bytes_read = read(socket, (uint32_t*)buffer, sizeof(uint32_t))) < 0){
             perror("CLIENT: READ file length ");
         }
         int file_length = ntohl(*(uint32_t*)buffer);
         printf("WITHOUT: file length %d\t WITH: file length %d\n",  *(uint32_t*)buffer, file_length);
 
-        if((num_bytes_read = read(socket, (uint32_t*)buffer, sizeof(uint32_t))) < 0){
+        while((num_bytes_read = read(socket, (uint32_t*)buffer, sizeof(uint32_t))) < 0){
             perror("CLIENT: READ file size ");
         }
         int file_size = ntohl(*(uint32_t*)buffer);
 
         printf("WITHOUT: file size %d\t WITH: file size %d\n\n",  *(uint32_t*)buffer, file_size);
-        if((num_bytes_read = read(socket, (char*)buffer, file_length)) < 0){
+        while((num_bytes_read = read(socket, (char*)buffer, file_length)) < 0){
             perror("CLIENT: READ file name ");
         }
         char* path = (char*)calloc(file_length+1, sizeof(char));
         memcpy(path, (char*)buffer, strlen((char*)buffer));
         printf("CLIENT GOT path: %s \n", path);
 
+        int file_fd = -1;
         /* CREATE FILE -- DELETE IT IF EXISTS */
+        if(strcmp(path, TERMINATION_MSG) != 0){
+            
+            file_fd = Resolve_FilePath(path, output_dir);
+            if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
+                perror("CLIENT: Write ACK message");
+
+
+            printf("fd = %d wrote ack, before reading content\n", file_fd);
+            /* GET THE CONTENT OF THE FILE*/
+
+
+            int bytes_to_read = file_size;
+            int bytes_read = 0;
+
+            while(bytes_to_read){
+
+                if(bytes_to_read < block_size)
+                    block_size = bytes_to_read;
+                //while(actual_bytes_read < block_size){
+                    if((bytes_read = read(socket, buffer, block_size)) < 0){
+                        perror("CLIENT: Read file content from socket");
+                    }
+                    //actual_bytes_read += bytes_read;
+                //}
+                if(write(file_fd, buffer, block_size) < 0){
+                    perror("SERVER: WRITE file content");
+                    exit(EXIT_FAILURE);
+                }
+                Clear_Buffer((char*)buffer, block_size);
+                bytes_to_read -= block_size;
+            }
+            if(close(file_fd) == -1){
+                perror("CLIENT: Close file");
+                exit(EXIT_FAILURE);
+            }
+
+        }
+           
 
         if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
             perror("CLIENT: Write ACK message");
-
-
-        /* GET THE CONTENT OF THE FILE*/
-
-
-        if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
-            perror("CLIENT: Write ACK message");
+        printf("wrote ack after copied the file\n");
         free(path);
     }while(strcmp((char*)buffer, TERMINATION_MSG) != 0);
 

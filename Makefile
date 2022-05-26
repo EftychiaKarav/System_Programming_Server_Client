@@ -64,6 +64,6 @@ valgrind1: clean all $(SERVER)
 # 	sudo umount /mnt/d
 # 	sudo mount -t drvfs D: /mnt/d -o metadata
 
-# ./remoteClient -i 127.0.0.1 -p 8000 -d .
+# ./remoteClient -i 127.0.0.1 -p 8000 -d ../SEMESTER_6/SYSPRO/System_Programming_Exec1_Sniffer
 # ./dataServer -p 8000 -q 8 -s 6 -b 1024
 # /mnt/d/SEMESTER_6/SYSPRO/System_Programming_Exec2_Server_Client

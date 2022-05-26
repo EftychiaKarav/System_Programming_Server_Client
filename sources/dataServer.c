@@ -2,10 +2,13 @@
 #include "../headers/Queue.h"
 
 
-void* Server_Job(void* arg){
+void* Server_Job(void* arguments){
 
-    int socket = *(int*)arg;
+    Commun_Threads_Args args = *(Commun_Threads_Args*)arguments;
+    int socket = args.socket;
+    size_t block_size = args.block_size;
     printf("socket server  is %d\n", socket);
+    printf("blocksize %ld\n", block_size);
     int num_bytes_read = -1;
     char buffer[MAX_LENGTH] = {'\0'};
     printf("NEW THREAD:  %ld\n", pthread_self());
@@ -25,7 +28,7 @@ void* Server_Job(void* arg){
     /* Open directory */
     if((dir_ptr = opendir(path)) == NULL ){
         fprintf(stdout, "Cannot open %s directory\n", path);
-        memset(buffer, 0, MAX_LENGTH);
+        Clear_Buffer(buffer, MAX_LENGTH);
         if(write(socket, WRONG_MSG, strlen(WRONG_MSG)) < 0){
             perror("SERVER: WRITE \"WRONG DIR NAME\" ");
         }
@@ -48,7 +51,22 @@ void* Server_Job(void* arg){
     if(write(socket, mess, strlen(mess)) < 0){
         perror("SERVER: WRITE \"TOTAL FILES TO SEND:\" ");
     }
-    Send_Files_to_Client();
+    Clear_Buffer(buffer, MAX_LENGTH);
+    uint32_t bl_size = htonl(block_size);
+    if(write(socket, &bl_size, sizeof(uint32_t)) < 0){
+        perror("SERVER: WRITE block size");
+    }
+    
+    printf("buffer %s\n", buffer);
+    while(strcmp(buffer, ACK_MSG) != 0){
+        while((read(socket, buffer, strlen(ACK_MSG))) < 0){
+            perror("SERVER: Read ACK message from client");
+            exit(EXIT_FAILURE);
+        }
+        //Print_Error("SERVER: Could not receive ACK message from client");
+    }
+    printf("before calling send files func\n");
+    Send_Files_to_Client(block_size);
 
 
 
@@ -117,7 +135,7 @@ void Extract_Files_From_Directory(int socket, char* path){
         }
 
         /* delete current path */
-        memset(curr_path, 0, strlen(curr_path));
+        //memset(curr_path, 0, strlen(curr_path));
         free(curr_path);
 
         /* Close directory */
@@ -139,10 +157,10 @@ void Extract_Files_From_Directory(int socket, char* path){
 /*********************************************************************************************************************/
 
 
-void Send_Files_to_Client(){   //func for threads + mutexes
+void Send_Files_to_Client(size_t block_size){   //func for threads + mutexes
 
     struct stat file_info;
-    char* buffer[MAX_LENGTH] = {'\0'};
+    char* buffer = (char*)calloc(block_size, sizeof(char));           //freeeeeeeeeeeeee
     while(Queue_Size(Files_Queue) != 0){
 
         QNode popped_node = Queue_Pop(Files_Queue);
@@ -174,6 +192,47 @@ void Send_Files_to_Client(){   //func for threads + mutexes
             if(write(socket, path_to_file, strlen(path_to_file)) < 0){
                 perror("SERVER: WRITE file name");
             }
+
+
+
+            while(strcmp(buffer, ACK_MSG) != 0){
+                printf("inn\n");
+                if ((read(socket, buffer, strlen(ACK_MSG))) < 0){
+                    perror("SERVER: Read ACK message from client");
+                    exit(EXIT_FAILURE);
+                }   
+            }
+
+            printf("ok before opeming file\n");
+            /* SENDING THE FILE*/
+            int file_fd = -1;
+            while ((file_fd = open(path_to_file, O_RDONLY)) < 0){
+                if (errno == EINTR) continue;
+                perror("SERVER: Could not open file to read");
+                exit(EXIT_FAILURE);	
+            }
+            int bytes_to_write = file_info.st_size, bytes_read = 0;
+            printf("SERVER: before reading from file_fd\n");
+            while(bytes_to_write){
+
+                if(bytes_to_write < block_size)
+                    block_size = bytes_to_write;
+                //while(actual_bytes_read < block_size){
+                    if((bytes_read = read(file_fd, buffer, block_size)) < 0){
+                        perror("SERVER: Read file content");
+                    }
+                    //actual_bytes_read += bytes_read;
+                //}
+                if(write(socket, buffer, block_size) < 0){
+                    perror("SERVER: WRITE file to socket");
+                    exit(EXIT_FAILURE);
+                }
+                Clear_Buffer(buffer, block_size);
+                bytes_to_write -= block_size;
+            }
+            printf("SERVER: after sending file to socket\n");
+
+
         }
         else{
             file_length = htonl(strlen(path_to_file));
@@ -193,26 +252,19 @@ void Send_Files_to_Client(){   //func for threads + mutexes
 
         }
 
-        while((read(socket, buffer, strlen(ACK_MSG))) < 0){
-            perror("SERVER: Read ACK message from client");
-        }
-        if(strcmp(buffer, ACK_MSG) != 0){
-            Print_Error("SERVER: Could not receive ACK message from client");
-        }
-
-        /* SENDING THE FILE*/
 
         while((read(socket, buffer, strlen(ACK_MSG))) < 0){
             perror("SERVER: Read ACK message from client");
         }
+        printf("%s\n", buffer);
         if(strcmp(buffer, ACK_MSG) != 0){
             Print_Error("SERVER: Could not receive ACK message from client");
         }
-
+        printf("received ack after finished with one file\n");
         QueueNode_Delete(popped_node);
     }
 
-
+    free(buffer);
 
 }
 
@@ -326,8 +378,12 @@ int main(int argc, char* argv[]){
 
 
         pthread_t communication_thread;
+        Commun_Threads_Args args;
+        memset(&args, 0, sizeof(Commun_Threads_Args));
+        args.socket = new_socket_number;
+        args.block_size = block_size;
         int err;
-        if ((err = pthread_create(&communication_thread, NULL, Server_Job, (void*)(&new_socket_number))) != 0) { /* New thread */
+        if ((err = pthread_create(&communication_thread, NULL, Server_Job, (void*)(&args))) != 0) { /* New thread */
             Print_Error_Value("Error in pthread_create", err);
         }
         printf("I am original thread %ld and I created thread %ld\n", 
