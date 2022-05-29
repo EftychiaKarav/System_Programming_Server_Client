@@ -69,6 +69,7 @@ void* Server_Job(void* arguments){
         }
         //Print_Error("SERVER: Could not receive ACK message from client");
     }
+    free(mess);
     uint32_t bl_size = htonl(block_size);
     if(write(socket, &bl_size, sizeof(uint32_t)) < 0){
         perror("SERVER: WRITE block size");
@@ -90,7 +91,7 @@ void* Server_Job(void* arguments){
     printf("before extracting files\n");
 
     Extract_Files_From_Directory(socket, path, max_queue_size);
-
+    free(path);
     printf("[%ld] FINISHED WITH EXTRACTING FILES\n", pthread_self());
     QNode node = QueueNode_Create_Node(socket, TERMINATION_MSG);
         
@@ -114,11 +115,11 @@ void* Server_Job(void* arguments){
             exit(EXIT_FAILURE);
         }
         if (strncmp(buffer, TERM_MSG, strlen(TERM_MSG)) == 0){
-            printf("FIINISHED\n");
+            printf("FIINISHED [%ld]\n", pthread_self());
             FINISHED = 1;
         }            
         else if(strncmp(buffer, ACK_MSG, strlen(ACK_MSG)) == 0){
-            printf("buffer %s [%ld]\n", buffer, pthread_self());    
+            //printf("buffer %s [%ld]\n", buffer, pthread_self());    
             Clear_Buffer(buffer, MAX_LENGTH);
         }
 
@@ -132,7 +133,10 @@ void* Server_Job(void* arguments){
     pthread_mutex_lock(&mutex_socket_queue);
     Queue_Delete(Mutex_Socket_Queue, q_node);
     pthread_mutex_unlock(&mutex_socket_queue);
-
+    if(close(socket) == -1){
+        perror("SERVER: Close new socket");
+        exit(EXIT_FAILURE);
+    }
     //sleep(10);
     printf("THREAD %ld is exiting\n", pthread_self());
     pthread_exit(NULL);
@@ -225,42 +229,11 @@ void Extract_Files_From_Directory(int socket, char* path, int max_queue_size){
 /*********************************************************************************************************************/
 
 
-void Send_Files_to_Client(size_t block_size){   //func for threads + mutexes
-
-    pthread_mutex_lock(&mutex_files_queue);
-    printf("SEND: thread [%ld] gets mutex -- blocksize %ld\n", pthread_self(), block_size);
-    while(Queue_isEmpty(Files_Queue)){
-        pthread_cond_wait(&cond_queue_not_empty, &mutex_files_queue);
-    }
-    QNode popped_node = Queue_Pop(Files_Queue);
-    char* path_to_file = QueueNode_GetFileName(popped_node);
-    int socket = QueueNode_GetSocket(popped_node);
-
-
-    QNode mtx_sock_node = Queue_Find(Mutex_Socket_Queue, socket);
-    pthread_mutex_t socket_mutex = QueueNode_GetMutex(mtx_sock_node);
-    //printf("node -> %p, %d", (void*)mtx_sock_node, socket_mutex.__data.__lock);
-    int err;
-    printf("mutex lock is %d\n", socket_mutex.__data.__lock);
-    QueueNode_LockMutex(mtx_sock_node);
-    // if(pthread_mutex_lock(&socket_mutex) !=0){
-    //     printf("error in lock\n");
-    //     exit(EXIT_FAILURE);
-    // }
-    // if((err= pthread_mutex_trylock(&socket_mutex)) !=0){
-    //     perror("error in trylock ");
-    //     printf("%d\n", err);
-    //     exit(EXIT_FAILURE);
-    // }
-    printf("^^^^^^^^ LOCK MUTEX FOR SOCKET ^^^^^^^^^   ---> [%ld]\n", pthread_self());
-
-    //printf("node -> %p, %d\n", (void*)mtx_sock_node, socket_mutex.__data.__lock);
-    pthread_mutex_unlock(&mutex_files_queue);
-    pthread_cond_signal(&cond_queue_not_full);   //notify that workers can start
-
+void Send_Files_to_Client(int socket, const char* path_to_file, size_t block_size){   //func for threads + mutexes
 
     uint32_t file_length = -1;
     uint32_t file_size = -1;
+    int file_fd = -1;
     struct stat file_info;
     char* buffer = (char*)calloc(block_size, sizeof(char));           //freeeeeeeeeeeeee
     printf("[%ld] SENDS ----> %s\n", pthread_self(),path_to_file);
@@ -288,19 +261,8 @@ void Send_Files_to_Client(size_t block_size){   //func for threads + mutexes
             perror("SERVER: WRITE file name");
         }
 
-
-
-        // while(strcmp(buffer, ACK_MSG) != 0){
-        //     printf("inn\n");
-        //     if ((read(socket, buffer, strlen(ACK_MSG))) < 0){
-        //         perror("SERVER: Read ACK message from client");
-        //         exit(EXIT_FAILURE);
-        //     }   
-        // }
-
         printf("[%ld]  ----> BEFORE OPENING FILE %s\n", pthread_self(), path_to_file);
         /* SENDING THE FILE*/
-        int file_fd = -1;
         while ((file_fd = open(path_to_file, O_RDONLY)) < 0){
             //if (errno == EINTR) continue;
             perror("SERVER: Could not open file to read");
@@ -327,6 +289,10 @@ void Send_Files_to_Client(size_t block_size){   //func for threads + mutexes
         }
         printf("SERVER: after sending file to socket\n");
 
+        if(close(file_fd) == -1){
+            perror("SERVER: Close file");
+            exit(EXIT_FAILURE);
+        }
 
     }
     else{
@@ -346,25 +312,7 @@ void Send_Files_to_Client(size_t block_size){   //func for threads + mutexes
         }
 
     }
-
-
-    // while((read(socket, buffer, strlen(ACK_MSG))) < 0){
-    //     perror("SERVER: Read ACK message from client");
-    // }
-    // printf("%s\n", buffer);
-    // if(strcmp(buffer, ACK_MSG) != 0){
-    //     Print_Error("SERVER: Could not receive ACK message from client");
-    // }
-    // printf("received ack after finished with one file\n");
-    QueueNode_Delete(popped_node);
-    //}
-
     free(buffer);
-    printf("^^^^^^^^ UNLOCK MUTEX FOR SOCKET ^^^^^^^^^   ---> [%ld]\n", pthread_self());
-    // if (pthread_mutex_unlock(&socket_mutex))
-    //     printf("error in unlock");
-    QueueNode_UnlockMutex(mtx_sock_node);
-
 }
 
 
@@ -517,18 +465,20 @@ int main(int argc, char* argv[]){
         printf("ORIGINAL THREAD: [%ld] COMMUNICATION THREAD: [%ld]\n", 
             pthread_self(), communication_thread);
 
-
-    	// close(new_socket_number); /* parent closes socket to client            */
-		// 	/* must be closed before it gets re-assigned */
-
     }
-    Queue_Destroy(Files_Queue);
-    Queue_Destroy(Mutex_Socket_Queue);
     ThreadPool_Destroy(args);
+    free(args);
+
+    if(close(socket_number) == -1){
+        perror("SERVER: Close socket");
+        exit(EXIT_FAILURE);
+    }
     pthread_mutex_destroy(&mutex_files_queue);
     pthread_mutex_destroy(&mutex_socket_queue);
     pthread_cond_destroy(&cond_queue_not_empty);
     pthread_cond_destroy(&cond_queue_not_full);
+    Queue_Destroy(Files_Queue);
+    Queue_Destroy(Mutex_Socket_Queue);
 
 
     exit(EXIT_SUCCESS);
@@ -544,9 +494,38 @@ void* ThreadPool_WorkerThread_Runs(void* arguments){
     printf("block size %ld\n", block_size);
     while(RUNNING){
         printf("[Thread %ld] takes another task\n", pthread_self());
-        Send_Files_to_Client(block_size);
+
+
+
+        pthread_mutex_lock(&mutex_files_queue);
+        printf("SEND: thread [%ld] gets mutex -- blocksize %ld\n", pthread_self(), block_size);
+        while(Queue_isEmpty(Files_Queue) && RUNNING){
+            pthread_cond_wait(&cond_queue_not_empty, &mutex_files_queue);
+        }
+        if (!RUNNING){
+            //printf("before unlocking\n");
+            pthread_mutex_unlock(&mutex_files_queue);
+            break;
+        } 
+        QNode popped_node = Queue_Pop(Files_Queue);
+        char* path_to_file = QueueNode_GetFileName(popped_node);
+        int socket = QueueNode_GetSocket(popped_node);
+        QNode mtx_sock_node = Queue_Find(Mutex_Socket_Queue, socket);
+        QueueNode_LockMutex(mtx_sock_node);
+        printf("^^^^^^^^ LOCK MUTEX FOR SOCKET ^^^^^^^^^   ---> [%ld]\n", pthread_self());
+        pthread_mutex_unlock(&mutex_files_queue);
+        pthread_cond_signal(&cond_queue_not_full);   //notify that workers can start
+
+        Send_Files_to_Client(socket, path_to_file, block_size);
+        QueueNode_Delete(popped_node);
+
+        printf("^^^^^^^^ UNLOCK MUTEX FOR SOCKET ^^^^^^^^^   ---> [%ld]\n", pthread_self());
+        // if (pthread_mutex_unlock(&socket_mutex))
+        //     printf("error in unlock");
+        QueueNode_UnlockMutex(mtx_sock_node);
 
     }
+    //printf("returning null\n");
 
     return NULL;
 
@@ -574,8 +553,10 @@ void ThreadPool_Initialize(Worker_Threads_Args* args){
 void ThreadPool_Destroy(Worker_Threads_Args* args){
 
     int total_worker_threads = args->total_worker_threads;
-
+    //pthread_mutex_lock(&mutex_files_queue);
     pthread_cond_broadcast(&cond_queue_not_empty);
+    //pthread_mutex_unlock(&mutex_files_queue);
+    //printf("signaled broadcast\n");
     for(int i=0; i < total_worker_threads; i++){
         pthread_join(args->worker_threads[i], NULL);
         printf("WORKER THREAD: [%ld] -----> EXITING\n", 

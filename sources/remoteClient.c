@@ -138,6 +138,11 @@ int main(int argc, char* argv[]){
         perror("CLIENT: Close socket");
         exit(EXIT_FAILURE);
     }
+    
+    close(STDOUT_FILENO);
+    close(STDIN_FILENO);
+    close(STDERR_FILENO);
+
     exit(EXIT_SUCCESS);
 }
 /***************************************************************************************************************/
@@ -203,11 +208,11 @@ void Client(int socket, char* directory){
     //int waiting = 1;
     /*************************************************************************************************/
     printf("\n\nbefore start reading do -- while\n");
-    Clear_Buffer((char*)buffer, MAX_LENGTH);
 
     char* content_buffer = (char*)calloc(block_size+1, sizeof(char));
     do{
-        //memset((char*)buffer, '\0', MAX_LENGTH*sizeof(char*));
+        memset(numbers_buffer, 0, sizeof(uint32_t));
+        Clear_Buffer(buffer, MAX_LENGTH);
         while((num_bytes_read = read(socket, numbers_buffer, sizeof(uint32_t))) < 0){
             perror("CLIENT: READ file length ");
         }
@@ -221,15 +226,15 @@ void Client(int socket, char* directory){
         
         printf("WITHOUT: file size %d\t WITH: file size %d\n",  *numbers_buffer, file_size);
         //memset((uint32_t*)buffer, 0, sizeof(uint32_t));
-        printf("%s \n", buffer);
         while((num_bytes_read = read(socket, buffer, file_length)) < 0){
             perror("CLIENT: READ file name ");
+            exit(EXIT_FAILURE);
         }
         printf("%s \n", buffer);
 
         char* path = (char*)calloc(file_length+1, sizeof(char));
         memcpy(path, (char*)buffer, strlen((char*)buffer));
-        printf("CLIENT GOT path: %s \n\n", path);
+        printf("CLIENT GOT path: %s \n", path);
         //Clear_Buffer((char*)buffer, MAX_LENGTH);
 
         int file_fd = -1;
@@ -278,7 +283,7 @@ void Client(int socket, char* directory){
 
         if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
             perror("CLIENT: Write ACK message");
-        printf("wrote ack after copied the file\n");
+        printf("wrote ack after copied the file\n\n");
         free(path);
     }while(strncmp((char*)buffer, TERMINATION_MSG, strlen(TERMINATION_MSG)) != 0);
 

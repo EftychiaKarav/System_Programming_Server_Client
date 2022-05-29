@@ -24,11 +24,15 @@ CLIENT_OBJECT = $(OBJECTS)/$(CLIENT).o
 
 ############################################################################
 
-all: clean objects_dir $(SERVER) $(CLIENT)
+all: clean objects_dir $(SERVER) $(CLIENT) multiple_clients
 
 #make the objects/ directory
 objects_dir:
 	mkdir -p objects
+
+
+multiple_clients:
+	chmod +x multiple_clients.sh
 
 #make the sniffer programm using all the object files in the objects/ directory
 $(SERVER): $(OBJECT_FILES)
@@ -52,7 +56,7 @@ run: all $(SERVER)
 
 clean:
 	rm -rf $(OBJECTS) *COPY*
-	rm -f $(SERVER) $(CLIENT)
+	rm -f $(SERVER) $(CLIENT) text*
 
 #################################################################################
 

@@ -67,8 +67,8 @@ void Clear_Buffer(char*, int);
 void* Server_Job(void*);
 void Client(int, char*);
 void Extract_Files_From_Directory(int, char*, int);  //maybe void 
-void Send_Files_to_Client(size_t);
 int Resolve_FilePath(char*, char*);
+void Send_Files_to_Client(int, const char*, size_t);  //func for threads + mutexes
 
 void ThreadPool_Initialize(Worker_Threads_Args*);
 void ThreadPool_Destroy(Worker_Threads_Args*);
