@@ -26,7 +26,6 @@
 
 
 #define TOTAL_ARGS_SERVER 9
-#define TOTAL_ARGS_CLIENT 7
 #define MAX_LENGTH 4096
 //#define DEFAULT_DIR "Documents"
 #define DEFAULT_DIR "/mnt/d/DOCUMENTS/"
@@ -34,7 +33,6 @@
 #define ACK_MSG "ACK"
 #define TERM_MSG "END"
 #define CONFIRMATION_MSG "About to scan directory: "
-#define OUT_DIR "SERVER_COPY_" 
 #define TERMINATION_MSG "ALL FILES WERE TRANSFERED"
 
 extern int RUNNING;
