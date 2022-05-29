@@ -32,29 +32,45 @@
 #define DEFAULT_DIR "/mnt/d/DOCUMENTS/"
 #define WRONG_MSG "WRONG DIRECTORY NAME"
 #define ACK_MSG "ACK"
-#define FILES_SENT_MSG "TOTAL FILES TO SEND: "
+#define TERM_MSG "END"
+#define CONFIRMATION_MSG "About to scan directory: "
 #define OUT_DIR "SERVER_COPY_" 
 #define TERMINATION_MSG "ALL FILES WERE TRANSFERED"
 
 extern int RUNNING;
+extern pthread_mutex_t mutex_files_queue;
+extern pthread_mutex_t mutex_socket_queue;
+extern pthread_cond_t cond_queue_not_empty;
+extern pthread_cond_t cond_queue_not_full;
 
 
 typedef struct Communication_Threads_Arguments{
    int socket;
    size_t block_size;
+   int queue_size;
 
 }Commun_Threads_Args;
 
+typedef struct Worker_Threads_Arguments{
+   size_t block_size;
+   int queue_size;
+   int total_worker_threads;
+   pthread_t* worker_threads;
 
+}Worker_Threads_Args;
+
+void Stop_Server(int);
 
 void Print_Error(char*);
 void Print_Error_Value(char*, int);
 void Clear_Buffer(char*, int);
 void* Server_Job(void*);
 void Client(int, char*);
-void Extract_Files_From_Directory(int, char*);  //maybe void 
+void Extract_Files_From_Directory(int, char*, int);  //maybe void 
 void Send_Files_to_Client(size_t);
 int Resolve_FilePath(char*, char*);
 
-
+void ThreadPool_Initialize(Worker_Threads_Args*);
+void ThreadPool_Destroy(Worker_Threads_Args*);
+void* ThreadPool_WorkerThread_Runs(void*);
 #endif
