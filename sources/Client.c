@@ -51,7 +51,7 @@ void Client(int socket, char* directory){
 
 
     if (write(socket, TERM_MSG, strlen(TERM_MSG)) < 0){
-        perror("CLIENT: Write ACK message");
+        perror("CLIENT: Write TERM message");
         exit(EXIT_FAILURE);
     }
 
@@ -92,7 +92,7 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
         printf("CLIENT GOT path: %s \n", path);
 
         int file_fd = -1;
-        if(strcmp(path, TERMINATION_MSG) != 0){
+        if(strncmp(path, TERMINATION_MSG, strlen(TERMINATION_MSG)) != 0){
             
             file_fd = Client_Resolve_FilePath(path, output_dir);
             if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
@@ -111,10 +111,11 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
                 if((bytes_read = read(socket, content_buffer, block_size)) < 0){
                     perror("CLIENT: Read file content from socket");
                 }
-                if(write(file_fd, content_buffer, block_size) < 0){
+                if(write(file_fd, (const char*)content_buffer, block_size) < 0){
                     perror("SERVER: WRITE file content");
                     exit(EXIT_FAILURE);
                 }
+                printf("%s\n", content_buffer);
                 Clear_Buffer(content_buffer, block_size);
                 bytes_to_read -= block_size;
             }
@@ -151,10 +152,10 @@ char* Client_Get_FileMetaData(int socket, char* buffer, unsigned int* file_size)
     memset(numbers_buffer, 0 , sizeof(uint32_t));
 
     /* 1. Receive the length of the path of the file */
-    while((num_bytes_read = read(socket, numbers_buffer, sizeof(uint32_t))) < 0){
+    while((num_bytes_read = read(socket, numbers_buffer, sizeof(uint16_t))) < 0){
         perror("CLIENT: READ file path length ");
     }
-    int file_length = ntohs(*numbers_buffer);     //convert from Network Byte Order to host order 
+    uint16_t file_length = ntohs(*numbers_buffer);     //convert from Network Byte Order to host order 
     printf("WITHOUT: file length %d\t WITH: file length %d\n",  *numbers_buffer, file_length);
 
     /* 2. Receive the size of the file */

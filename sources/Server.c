@@ -230,7 +230,7 @@ void Server_Extract_Files_From_Directory(int socket, char* path, int max_queue_s
 
 void Send_Files_to_Client(int socket, const char* path_to_file, size_t block_size){   //func for threads + mutexes
 
-    uint32_t file_length = -1;
+    uint16_t file_length = -1;
     uint32_t file_size = -1;
     int file_fd = -1;
     struct stat file_info;
@@ -247,7 +247,7 @@ void Send_Files_to_Client(int socket, const char* path_to_file, size_t block_siz
 
         file_length = htons(strlen(path_to_file));
         printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
-        if(write(socket, &file_length, sizeof(uint32_t)) < 0){
+        if(write(socket, &file_length, sizeof(uint16_t)) < 0){
             perror("SERVER: WRITE file length");
         }
 
@@ -279,6 +279,7 @@ void Send_Files_to_Client(int socket, const char* path_to_file, size_t block_siz
                 }
                 //actual_bytes_read += bytes_read;
             //}
+            //printf("%s\n", buffer);
             if(write(socket, buffer, block_size) < 0){
                 perror("SERVER: WRITE file to socket");
                 exit(EXIT_FAILURE);
@@ -295,9 +296,9 @@ void Send_Files_to_Client(int socket, const char* path_to_file, size_t block_siz
 
     }
     else{
-        file_length = htonl(strlen(path_to_file));
+        file_length = htons(strlen(path_to_file));
         printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
-        if(write(socket, &file_length, sizeof(uint32_t)) < 0){
+        if(write(socket, &file_length, sizeof(uint16_t)) < 0){
             perror("SERVER: WRITE file length");
         }
 

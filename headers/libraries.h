@@ -25,8 +25,9 @@
 #include <pthread.h>
 
 #define MAX_LENGTH 4096
-#define DEFAULT_DIR "/home/users/sdi1800062/Documents/"
+//#define DEFAULT_DIR "/home/users/sdi1800062/Documents/"
 //#define DEFAULT_DIR "/mnt/d/DOCUMENTS/"
+#define DEFAULT_DIR "/mnt/d/Docs/"
 #define WRONG_MSG "WRONG DIRECTORY NAME"
 #define ACK_MSG "ACK"
 #define CONFIRMATION_MSG "About to scan directory: "
