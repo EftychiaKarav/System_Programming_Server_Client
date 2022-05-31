@@ -83,7 +83,7 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
         }
     }
 
-    char* content_buffer = (char*)calloc(block_size+1, sizeof(char));   //buffer for reading file content
+    char* content_buffer = (char*)calloc(block_size, sizeof(char));   //buffer for reading file content
     
     do{
         Clear_Buffer(buffer, MAX_LENGTH);
@@ -101,7 +101,7 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
 
             printf("fd = %d wrote ack, before reading content\n", file_fd);
             /* GET THE CONTENT OF THE FILE*/
-
+            Clear_Buffer(buffer, MAX_LENGTH);
             int bytes_to_read = file_size;
             int bytes_read = 0;
             while(bytes_to_read){
@@ -124,10 +124,10 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
             }
 
         }
+        printf("Received: %s\n\n", path);
         if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
             perror("CLIENT: Write ACK message");
         
-        printf("Received: %s\n\n", path);
         free(path);
     }while(strncmp(buffer, TERMINATION_MSG, strlen(TERMINATION_MSG)) != 0);
 
@@ -154,7 +154,7 @@ char* Client_Get_FileMetaData(int socket, char* buffer, unsigned int* file_size)
     while((num_bytes_read = read(socket, numbers_buffer, sizeof(uint32_t))) < 0){
         perror("CLIENT: READ file path length ");
     }
-    int file_length = ntohl(*numbers_buffer);     //convert from Network Byte Order to host order 
+    int file_length = ntohs(*numbers_buffer);     //convert from Network Byte Order to host order 
     printf("WITHOUT: file length %d\t WITH: file length %d\n",  *numbers_buffer, file_length);
 
     /* 2. Receive the size of the file */

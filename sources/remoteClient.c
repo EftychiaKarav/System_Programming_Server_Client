@@ -22,9 +22,9 @@ int main(int argc, char* argv[]){
 
         if(!strcmp(argv[i], "-i")){
 	        /* IPV dot-number into  binary form (network byte order) */
-            // if (inet_aton(argv[i+1], &server_address) == 0)
-            //     Print_Error("IP address is not valid");
-            if ((server_entity = gethostbyaddr((const char*)&server.sin_addr.s_addr, sizeof(server.sin_addr.s_addr), AF_INET)) == NULL){
+            if (inet_aton(argv[i+1], &server.sin_addr) == 0)
+                Print_Error("IP address is not valid");
+            if ((server_entity = gethostbyaddr((const char*)&server.sin_addr, sizeof(server.sin_addr), AF_INET)) == NULL){
                 herror("Given IP-address could not be resolved\n");
                 exit(EXIT_FAILURE);
             }

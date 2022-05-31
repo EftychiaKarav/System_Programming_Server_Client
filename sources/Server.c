@@ -20,7 +20,6 @@ void* Server(void* arguments){
     pthread_mutex_unlock(&mutex_socket_queue);
 
     printf("socket server  is %d\n", socket);
-    printf("blocksize %ld\n", block_size);
     int num_bytes_read = -1;
     char buffer[MAX_LENGTH] = {'\0'};
     printf("NEW THREAD:  %ld\n", pthread_self());
@@ -235,7 +234,7 @@ void Send_Files_to_Client(int socket, const char* path_to_file, size_t block_siz
     uint32_t file_size = -1;
     int file_fd = -1;
     struct stat file_info;
-    char* buffer = (char*)calloc(block_size, sizeof(char));           //freeeeeeeeeeeeee
+    char* buffer = (char*)calloc(block_size + 1, sizeof(char));           //freeeeeeeeeeeeee
     printf("[%ld] SENDS ----> %s\n", pthread_self(),path_to_file);
     if(strcmp(path_to_file, TERMINATION_MSG) != 0){
         memset(&file_info, '\0', sizeof(file_info));
@@ -246,7 +245,7 @@ void Send_Files_to_Client(int socket, const char* path_to_file, size_t block_siz
         }
         printf("FILE IS: %s\n", path_to_file);
 
-        file_length = htonl(strlen(path_to_file));
+        file_length = htons(strlen(path_to_file));
         printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
         if(write(socket, &file_length, sizeof(uint32_t)) < 0){
             perror("SERVER: WRITE file length");
