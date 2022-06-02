@@ -31,8 +31,7 @@ void Send_Data(int file_desc, void* buffer, size_t total_bytes, char* error_msg)
     int bytes_to_send = total_bytes, bytes_written = 0;
     while(bytes_to_send){  /* do until all bytes have been sent */
         if((bytes_written = write(file_desc, buffer, bytes_to_send)) < 0){
-            perror(error_msg);
-            exit(EXIT_FAILURE);
+            Print_Error(error_msg);
         }
         bytes_to_send -= bytes_written;  /* substract actual bytes written */
     }
@@ -45,8 +44,7 @@ void Receive_Data(int file_desc, void* buffer, size_t total_bytes, char* error_m
     int bytes_to_receive = total_bytes, bytes_read = 0;
     while(bytes_to_receive){   /* do until all bytes have been sent */
         if((bytes_read = read(file_desc, buffer, bytes_to_receive)) < 0){
-            perror(error_msg);
-            exit(EXIT_FAILURE);
+            Print_Error(error_msg);
         }
         bytes_to_receive -= bytes_read;   /* substract actual bytes read */
     }

@@ -64,8 +64,7 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
     memset(&dir_info, 0, sizeof(struct stat));
     if (stat(output_dir, &dir_info) < 0){    // check if [output_dir] exists
         if(mkdir(output_dir, 0744) == -1){
-            perror("CLIENT: Could not create output directory");
-            exit(EXIT_FAILURE);  
+            Print_Error("CLIENT: Could not create output directory");
         }
     }
 
@@ -96,8 +95,7 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
                 Clear_Buffer(content_buffer, bytes_read);
             }
             if(close(file_fd) == -1){      /* close file descriptor of the copied file */
-                perror("CLIENT: Close file after copying");
-                exit(EXIT_FAILURE);
+                Print_Error("CLIENT: Close file after copying");
             }
 
         }
@@ -199,15 +197,13 @@ int Client_Resolve_FilePath(char* path, char* output_dir){
         if(isDirectory){
             if (node_status < 0){
                 if(mkdir(copied_path, 0744) == -1){
-                    perror("CLIENT: Could not create new directory");
-                    exit(EXIT_FAILURE);  
+                    Print_Error("CLIENT: Could not create new directory");
                 }
             }
         }
         else{          /* CREATE FILE -- DELETE IT IF EXISTS */
             if ( (new_file_fd = open(copied_path, O_CREAT|O_TRUNC|O_RDWR, 0644)) == -1){
-                    perror("CLIENT: Creating new file");
-                    exit(EXIT_FAILURE);
+                Print_Error("CLIENT: Creating new file");
             }
         }       
         start = end + 1;   //[start] points to character after the '/'
