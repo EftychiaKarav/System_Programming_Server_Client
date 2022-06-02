@@ -16,7 +16,6 @@ int main(int argc, char* argv[]){
             if(atoi(argv[i+1]) <= 0)
                 Print_Error("Port should be a positive number");
             port = htons(atoi(argv[i+1]));
-            printf("port --> %d", port);
         }
 
         else if(!strcmp(argv[i], "-s")){
@@ -44,6 +43,11 @@ int main(int argc, char* argv[]){
             -q --> queue_size, -b --> block_size");
         }
     }
+
+
+    printf("\nServer's parameters are:\nPort: %d\nThread_Pool_Size: %d\nQueue_Size: %d\nBlock_Size: %ld\n",
+          port, thread_pool_size, queue_size, block_size);
+    printf("Server was successfully initialized...\n");
 
     /* Sigaction for server */
     struct sigaction server_action;
@@ -85,8 +89,8 @@ int main(int argc, char* argv[]){
         Print_Error("Server: Could not bind");
     }
     
-    /* Listen for connections --> max 20 Clients */
-    if (listen(socket_number, 20) < 0)
+    /* Listen for connections --> max 1000 Clients */
+    if (listen(socket_number, 1000) < 0)
         Print_Error("Server: listen failed");
     
     printf("Listening for connections to port %d\n", port);
@@ -127,8 +131,8 @@ int main(int argc, char* argv[]){
         printf("Accepted connection from %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
         //printf("Accepted connection from %s\n", client_entity->h_name);
     	printf("Accepted connection\n");
-        printf("new socket is %d\n", socket_number);
-        printf("new socket is %d\n", new_socket_number);
+        // printf("new socket is %d\n", socket_number);
+        // printf("new socket is %d\n", new_socket_number);
 
         if(!Queue_Exists(Mutex_Socket_Queue)){
             Mutex_Socket_Queue = Queue_Initialize();
@@ -145,8 +149,8 @@ int main(int argc, char* argv[]){
         if ((err = pthread_create(&communication_thread, NULL, Server, (void*)(&args))) != 0) { /* New thread */
             Print_Error_Value("Error in pthread_create", err);
         }
-        printf("ORIGINAL THREAD: [%ld] COMMUNICATION THREAD: [%ld]\n", 
-            pthread_self(), communication_thread);
+        // printf("ORIGINAL THREAD: [%ld] COMMUNICATION THREAD: [%ld]\n", 
+        //     pthread_self(), communication_thread);
 
     }
     ThreadPool_Destroy(&args);

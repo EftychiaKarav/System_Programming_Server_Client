@@ -146,8 +146,7 @@ char* Server_Receive_DirName_From_Client(int socket, char* buffer){
     }
     /* Server builds the path of the directory to open; it is relevant to the [DEFAULT_DIR] */
     char* path = (char*)calloc(strlen(DEFAULT_DIR) + strlen(buffer) + 1, sizeof(char));
-    memcpy(path, DEFAULT_DIR, strlen(DEFAULT_DIR));
-    memcpy(path + strlen(DEFAULT_DIR), buffer, strlen(buffer));
+    snprintf(path, strlen(DEFAULT_DIR) + strlen(buffer) + 1, "%s%s%c", DEFAULT_DIR, buffer, '\0');
     Clear_Buffer(buffer, MAX_LENGTH);
     
     DIR* dir_ptr = NULL;

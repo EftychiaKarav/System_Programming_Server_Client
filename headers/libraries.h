@@ -38,5 +38,7 @@
 void Print_Error(char*);
 void Print_Error_Value(char*, int);
 void Clear_Buffer(char*, int);
+void Send_Data(int, void*, size_t, char*);
+void Receive_Data(int, void*, size_t, char*);
 
 #endif
