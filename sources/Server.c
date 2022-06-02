@@ -25,9 +25,9 @@ void* Server(void* arguments){
     size_t block_size = args.block_size;
     int max_queue_size = args.queue_size;
     
-
     /* create and add the pair <socket, mutex> to the Mutex_Socket_Queue */
     pthread_mutex_lock(&mutex_socket_queue);
+    printf("new socket %d\n", socket);
     QNode q_node = QueueNode_Create_Node(socket, NULL);
     Queue_Insert(Mutex_Socket_Queue, q_node);
     pthread_mutex_unlock(&mutex_socket_queue);
@@ -44,40 +44,36 @@ void* Server(void* arguments){
     char* path = Server_Receive_DirName_From_Client(socket, buffer);
 
 
-    /* send confirmation to the client, that the server got his request */
-    char* mess = (char*)calloc(strlen(CONFIRMATION_MSG) + strlen(path) + 1, sizeof(char));
-    snprintf(mess, strlen(CONFIRMATION_MSG) + strlen(path) + 1, "%s%s%c", CONFIRMATION_MSG, path, '\0');
-    printf("[COMMUNICATION THREAD: %ld] ---> %s\n", pthread_self(), mess);
-    if(write(socket, mess, strlen(mess)) < 0){
-        perror("SERVER: WRITE \"ABOUT TO SCAN DIR:\" ");
-    }
-    free(mess);
 
-    while(strncmp(buffer, ACK_MSG, strlen(ACK_MSG)) != 0){
-        //printf("here\n");
-        while((read(socket, buffer, strlen(ACK_MSG))) < 0){
-            perror("SERVER: Read ACK message from client");
-            exit(EXIT_FAILURE);
-        }
-        //Print_Error("SERVER: Could not receive ACK message from client");
-    }
+
+    // while(strncmp(buffer, ACK_MSG, strlen(ACK_MSG)) != 0){
+    //     //printf("here\n");
+    //     while((read(socket, buffer, strlen(ACK_MSG))) < 0){
+    //         perror("SERVER: Read ACK message from client");
+    //         exit(EXIT_FAILURE);
+    //     }
+    //     //Print_Error("SERVER: Could not receive ACK message from client");
+    // }
+    Receive_Data(socket, buffer, strlen(ACK_MSG), "SERVER: Read ACK message from client");
 
     uint32_t bl_size = htonl(block_size);
-    if(write(socket, &bl_size, sizeof(uint32_t)) < 0){
-        perror("SERVER: WRITE block size");
-    }
+    Send_Data(socket, &bl_size, sizeof(uint32_t), "SERVER: WRITE block size");
+    // if(write(socket, &bl_size, sizeof(uint32_t)) < 0){
+    //     perror("SERVER: WRITE block size");
+    // }
     
     printf("buffer %s\n", buffer);
 
 
-    while(strncmp(buffer, ACK_MSG, strlen(ACK_MSG)) != 0){
-        printf("here\n");
-        while((read(socket, buffer, strlen(ACK_MSG))) < 0){
-            perror("SERVER: Read ACK message from client");
-            exit(EXIT_FAILURE);
-        }
-        //Print_Error("SERVER: Could not receive ACK message from client");
-    }
+    // while(strncmp(buffer, ACK_MSG, strlen(ACK_MSG)) != 0){
+    //     printf("here\n");
+    //     while((read(socket, buffer, strlen(ACK_MSG))) < 0){
+    //         perror("SERVER: Read ACK message from client");
+    //         exit(EXIT_FAILURE);
+    //     }
+    //     //Print_Error("SERVER: Could not receive ACK message from client");
+    // }
+    Receive_Data(socket, buffer, strlen(ACK_MSG), "SERVER: Read ACK message from client");
 
 
     printf("before extracting files\n");
@@ -101,13 +97,15 @@ void* Server(void* arguments){
     int FINISHED = 0;
     while(!FINISHED){
         
-        if ((read(socket, buffer, strlen(ACK_MSG))) < 0){
-            perror("SERVER: Read ACK message from client");
-            exit(EXIT_FAILURE);
-        }
+        // if ((read(socket, buffer, strlen(ACK_MSG))) < 0){
+        //     perror("SERVER: Read ACK message from client");
+        //     exit(EXIT_FAILURE);
+        // }
+        Receive_Data(socket, buffer, strlen(ACK_MSG), "SERVER: Read ACK message from client");
         if (strncmp(buffer, TERM_MSG, strlen(TERM_MSG)) == 0){
             printf("FIINISHED [%ld]\n", pthread_self());
             FINISHED = 1;
+            Clear_Buffer(buffer, MAX_LENGTH);
         }            
         else if(strncmp(buffer, ACK_MSG, strlen(ACK_MSG)) == 0){
             //printf("buffer %s [%ld]\n", buffer, pthread_self());    
@@ -125,7 +123,7 @@ void* Server(void* arguments){
         perror("SERVER: Close new socket");
         exit(EXIT_FAILURE);
     }
-
+    free(arguments);
     printf("[COMMUNICATION THREAD: %ld] ---> exits\n", pthread_self());
     pthread_exit(NULL);
 
@@ -138,12 +136,14 @@ void* Server(void* arguments){
 /* Server reads the relative path of a directory name, which the client sent through the socket to the server */
 char* Server_Receive_DirName_From_Client(int socket, char* buffer){
 
-    int num_bytes_read = -1;
-
+    uint16_t dir_length = 0;
     /* Server reads the relative path of a directory name, which the client sent through the socket to the server */
-    if((num_bytes_read = read(socket, buffer, MAX_LENGTH)) < 0){
-        perror("SERVER: Read directory name");
-    }
+    Receive_Data(socket, &dir_length, sizeof(uint16_t),"SERVER: Read directory length");
+    dir_length = ntohs(dir_length);
+    Receive_Data(socket, buffer, dir_length,"SERVER: Read directory name");
+    // if((num_bytes_read = read(socket, buffer, MAX_LENGTH)) < 0){
+    //     perror("SERVER: Read directory name");
+    // }
     /* Server builds the path of the directory to open; it is relevant to the [DEFAULT_DIR] */
     char* path = (char*)calloc(strlen(DEFAULT_DIR) + strlen(buffer) + 1, sizeof(char));
     snprintf(path, strlen(DEFAULT_DIR) + strlen(buffer) + 1, "%s%s%c", DEFAULT_DIR, buffer, '\0');
@@ -154,9 +154,10 @@ char* Server_Receive_DirName_From_Client(int socket, char* buffer){
     if((dir_ptr = opendir(path)) == NULL ){
         fprintf(stdout, "Cannot open %s directory\n", path);
         Clear_Buffer(buffer, MAX_LENGTH);
-        if(write(socket, WRONG_MSG, strlen(WRONG_MSG)) < 0){
-            perror("SERVER: WRITE \"WRONG DIR NAME\" ");
-        }
+        Send_Data(socket, WRONG_MSG, strlen(WRONG_MSG), "SERVER: WRITE \"WRONG DIR NAME\" ");
+        // if(write(socket, WRONG_MSG, strlen(WRONG_MSG)) < 0){
+        //     perror("SERVER: WRITE \"WRONG DIR NAME\" ");
+        // }
         printf("THREAD %ld is exiting\n", pthread_self());
         int error = 1;
         pthread_exit(&error);
@@ -166,6 +167,19 @@ char* Server_Receive_DirName_From_Client(int socket, char* buffer){
         fprintf(stdout, "Cannot close %s directory\n", path);
         exit(EXIT_FAILURE);
     }
+
+    /* send confirmation to the client, that the server got his request */
+    char* mess = (char*)calloc(strlen(CONFIRMATION_MSG) + strlen(path) + 1, sizeof(char));
+    snprintf(mess, strlen(CONFIRMATION_MSG) + strlen(path) + 1, "%s%s%c", CONFIRMATION_MSG, path, '\0');
+    printf("[COMMUNICATION THREAD: %ld] ---> %s\n", pthread_self(), mess);
+    
+    dir_length = htons(strlen(mess));
+    Send_Data(socket, &dir_length, sizeof(uint16_t), "SERVER: WRITE CONFIRM_MSG length");
+    Send_Data(socket, mess, strlen(mess), "SERVER: WRITE \"ABOUT TO SCAN DIR:\" ");
+    // if(write(socket, mess, strlen(mess)) < 0){
+    //     perror("SERVER: WRITE \"ABOUT TO SCAN DIR:\" ");
+    // }
+    free(mess);
 
     return path;    /*path to the directory name to send to client */
 
@@ -276,18 +290,21 @@ void Server_Send_Files_to_Client(int socket, const char* path_to_file, size_t bl
 
         file_length = htons(strlen(path_to_file));
         printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
-        if(write(socket, &file_length, sizeof(uint16_t)) < 0){
-            perror("SERVER: WRITE file length");
-        }
+        Send_Data(socket, &file_length, sizeof(uint16_t), "SERVER: WRITE file length");
+        // if(write(socket, &file_length, sizeof(uint16_t)) < 0){
+        //     perror("SERVER: WRITE file length");
+        // }
 
         file_size = htonl(file_info.st_size);
         printf("WITHOUT: file size %ld\t WITH: file size %d\n\n",  file_info.st_size, file_size);
-        if(write(socket, &file_size, sizeof(uint32_t)) < 0){
-            perror("SERVER: WRITE file size");
-        }
-        if(write(socket, path_to_file, strlen(path_to_file)) < 0){
-            perror("SERVER: WRITE file name");
-        }
+        Send_Data(socket, &file_size, sizeof(uint32_t), "SERVER: WRITE file size");
+        // if(write(socket, &file_size, sizeof(uint32_t)) < 0){
+        //     perror("SERVER: WRITE file size");
+        // }
+        Send_Data(socket, (char*)path_to_file, strlen(path_to_file), "SERVER: WRITE file name");
+        // if(write(socket, path_to_file, strlen(path_to_file)) < 0){
+        //     perror("SERVER: WRITE file name");
+        // }
 
         //printf("[%ld]  ----> BEFORE OPENING FILE %s\n", pthread_self(), path_to_file);
         /* SENDING THE FILE*/
@@ -296,27 +313,29 @@ void Server_Send_Files_to_Client(int socket, const char* path_to_file, size_t bl
             perror("SERVER: Could not open file to read");
             exit(EXIT_FAILURE);	
         }
-        int bytes_to_send = file_info.st_size, bytes_read = 0, bytes_to_write = 0, bytes_written = 0;
+        int bytes_to_send = file_info.st_size;
         printf("[WORKER THREAD: %ld]  ----> ABOUT TO READ FILE ** %s **\n", pthread_self(), path_to_file);
         while(bytes_to_send){
 
             if(bytes_to_send < block_size)
                 block_size = bytes_to_send;
-            if((bytes_read = read(file_fd, buffer, block_size)) < 0){
-                perror("SERVER: Read file content"); 
-                exit(EXIT_FAILURE);
-            }
-            bytes_to_write = bytes_read;
+            // if((bytes_read = read(file_fd, buffer, block_size)) < 0){
+            //     perror("SERVER: Read file content"); 
+            //     exit(EXIT_FAILURE);
+            // }
+            Receive_Data(file_fd, buffer, block_size, "SERVER: Read file content");
+            //bytes_to_write = bytes_read;
             //printf("%s\n", buffer);
-            while(bytes_to_write){
-                if((bytes_written = write(socket, buffer, bytes_to_write)) < 0){
-                    perror("SERVER: WRITE file to socket");
-                    exit(EXIT_FAILURE);
-                }
-                bytes_to_write -= bytes_written;
-            }
+            Send_Data(socket, buffer, block_size, "SERVER: WRITE file to socket");
+            // while(bytes_to_write){
+            //     if((bytes_written = write(socket, buffer, bytes_to_write)) < 0){
+            //         perror("SERVER: WRITE file to socket");
+            //         exit(EXIT_FAILURE);
+            //     }
+            //     bytes_to_write -= bytes_written;
+            // }
 
-            bytes_to_send -= bytes_read;
+            bytes_to_send -= block_size;
             Clear_Buffer(buffer, block_size+1);
         }
         printf("SERVER: after sending file to socket\n");
@@ -330,19 +349,21 @@ void Server_Send_Files_to_Client(int socket, const char* path_to_file, size_t bl
     else{
         file_length = htons(strlen(path_to_file));
         printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
-        if(write(socket, &file_length, sizeof(uint16_t)) < 0){
-            perror("SERVER: WRITE file length");
-        }
+        Send_Data(socket, &file_length, sizeof(uint16_t), "SERVER: WRITE file length");
+        // if(write(socket, &file_length, sizeof(uint16_t)) < 0){
+        //     perror("SERVER: WRITE file length");
+        // }
 
         file_size = htonl(0);
         printf("WITHOUT: file size %d\t WITH: file size %d\n\n",  file_size, file_size);
-        if(write(socket, &file_size, sizeof(uint32_t)) < 0){
-            perror("SERVER: WRITE file size");
-        }
-        if(write(socket, path_to_file, strlen(path_to_file)) < 0){
-            perror("SERVER: WRITE file name");
-        }
-
+        Send_Data(socket, &file_size, sizeof(uint32_t), "SERVER: WRITE file size");
+        // if(write(socket, &file_size, sizeof(uint32_t)) < 0){
+        //     perror("SERVER: WRITE file size");
+        // }
+        Send_Data(socket, (char*)path_to_file, strlen(path_to_file), "SERVER: WRITE file name");
+        // if(write(socket, path_to_file, strlen(path_to_file)) < 0){
+        //     perror("SERVER: WRITE file name");
+        // }
     }
     free(buffer);
 }
@@ -388,9 +409,6 @@ void* ThreadPool_WorkerThread_Runs(void* arguments){
     Worker_Threads_Args args = *(Worker_Threads_Args*)arguments;
     size_t block_size = args.block_size;
     while(RUNNING){
-        printf("[Thread %ld] takes another task\n", pthread_self());
-
-
 
         pthread_mutex_lock(&mutex_files_queue);
         //printf("SEND: thread [%ld] gets mutex -- blocksize %ld\n", pthread_self(), block_size);

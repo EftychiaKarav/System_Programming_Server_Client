@@ -117,11 +117,12 @@ int main(int argc, char* argv[]){
 
         /* accept connection */
     	if ((new_socket_number = accept(socket_number, clientptr, &clientlen)) < 0){
-            if(errno == EINTR) continue;
+            if(!RUNNING) continue;
             perror("Server could not accept connection");
             printf("errno is %d\n", errno);
             exit(EXIT_FAILURE);
         }
+        printf("errno = %d", errno);
     	/* Find client's address */
 
     	// if ((client_entity = gethostbyaddr((char *) &client.sin_addr, sizeof(client.sin_addr), client.sin_family)) == NULL){
@@ -130,23 +131,23 @@ int main(int argc, char* argv[]){
         // }
         printf("Accepted connection from %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
         //printf("Accepted connection from %s\n", client_entity->h_name);
-    	printf("Accepted connection\n");
         // printf("new socket is %d\n", socket_number);
-        // printf("new socket is %d\n", new_socket_number);
+        printf("new socket is %d\n", new_socket_number);
 
         if(!Queue_Exists(Mutex_Socket_Queue)){
             Mutex_Socket_Queue = Queue_Initialize();
         }
 
         pthread_t communication_thread;
-        Commun_Threads_Args args;
-        memset(&args, 0, sizeof(Commun_Threads_Args));
-        args.socket = new_socket_number;
-        args.block_size = block_size;
-        args.queue_size = queue_size;
+        Commun_Threads_Args* args;
+        args = (Commun_Threads_Args*)calloc(1, sizeof(Commun_Threads_Args));
+        // memset(&args, 0, sizeof(Commun_Threads_Args));
+        args->socket = new_socket_number;
+        args->block_size = block_size;
+        args->queue_size = queue_size;
         
         int err = 0;
-        if ((err = pthread_create(&communication_thread, NULL, Server, (void*)(&args))) != 0) { /* New thread */
+        if ((err = pthread_create(&communication_thread, NULL, Server, (void*)(args))) != 0) { /* New thread */
             Print_Error_Value("Error in pthread_create", err);
         }
         // printf("ORIGINAL THREAD: [%ld] COMMUNICATION THREAD: [%ld]\n", 
