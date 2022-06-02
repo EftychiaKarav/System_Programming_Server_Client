@@ -101,12 +101,6 @@ int main(int argc, char* argv[]){
     args.queue_size = queue_size;
     args.total_worker_threads = thread_pool_size;
 
-    //args = (Worker_Threads_Args*)calloc(1, sizeof(Worker_Threads_Args));
-    // args->block_size = block_size;
-    // args->queue_size = queue_size;
-    // args->total_worker_threads = thread_pool_size;
-
-
     if(!Queue_Exists(Files_Queue)){
         Files_Queue = Queue_Initialize();
     }
@@ -122,7 +116,6 @@ int main(int argc, char* argv[]){
             printf("errno is %d\n", errno);
             exit(EXIT_FAILURE);
         }
-        printf("errno = %d", errno);
     	/* Find client's address */
 
     	// if ((client_entity = gethostbyaddr((char *) &client.sin_addr, sizeof(client.sin_addr), client.sin_family)) == NULL){
@@ -132,7 +125,6 @@ int main(int argc, char* argv[]){
         printf("Accepted connection from %s %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
         //printf("Accepted connection from %s\n", client_entity->h_name);
         // printf("new socket is %d\n", socket_number);
-        printf("new socket is %d\n", new_socket_number);
 
         if(!Queue_Exists(Mutex_Socket_Queue)){
             Mutex_Socket_Queue = Queue_Initialize();
@@ -155,11 +147,9 @@ int main(int argc, char* argv[]){
 
     }
     ThreadPool_Destroy(&args);
-    //free(args);
 
     if(close(socket_number) == -1){
-        perror("SERVER: Close socket");
-        exit(EXIT_FAILURE);
+        Print_Error("SERVER: Close socket");
     }
     Queue_Destroy(Files_Queue);
     Queue_Destroy(Mutex_Socket_Queue);

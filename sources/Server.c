@@ -27,7 +27,6 @@ void* Server(void* arguments){
     
     /* create and add the pair <socket, mutex> to the Mutex_Socket_Queue */
     pthread_mutex_lock(&mutex_socket_queue);
-    printf("new socket %d\n", socket);
     QNode q_node = QueueNode_Create_Node(socket, NULL);
     Queue_Insert(Mutex_Socket_Queue, q_node);
     pthread_mutex_unlock(&mutex_socket_queue);
@@ -43,45 +42,14 @@ void* Server(void* arguments){
     /* Receive the path to the directory, which is to be sent to the client */
     char* path = Server_Receive_DirName_From_Client(socket, buffer);
 
-
-
-
-    // while(strncmp(buffer, ACK_MSG, strlen(ACK_MSG)) != 0){
-    //     //printf("here\n");
-    //     while((read(socket, buffer, strlen(ACK_MSG))) < 0){
-    //         perror("SERVER: Read ACK message from client");
-    //         exit(EXIT_FAILURE);
-    //     }
-    //     //Print_Error("SERVER: Could not receive ACK message from client");
-    // }
     Receive_Data(socket, buffer, strlen(ACK_MSG), "SERVER: Read ACK message from client");
-
     uint32_t bl_size = htonl(block_size);
     Send_Data(socket, &bl_size, sizeof(uint32_t), "SERVER: WRITE block size");
-    // if(write(socket, &bl_size, sizeof(uint32_t)) < 0){
-    //     perror("SERVER: WRITE block size");
-    // }
-    
-    printf("buffer %s\n", buffer);
-
-
-    // while(strncmp(buffer, ACK_MSG, strlen(ACK_MSG)) != 0){
-    //     printf("here\n");
-    //     while((read(socket, buffer, strlen(ACK_MSG))) < 0){
-    //         perror("SERVER: Read ACK message from client");
-    //         exit(EXIT_FAILURE);
-    //     }
-    //     //Print_Error("SERVER: Could not receive ACK message from client");
-    // }
     Receive_Data(socket, buffer, strlen(ACK_MSG), "SERVER: Read ACK message from client");
 
-
-    printf("before extracting files\n");
-    pthread_mutex_lock(&mutex_dir);
     Server_Extract_Files_From_Directory(socket, path, max_queue_size);
-    pthread_mutex_unlock(&mutex_dir);
+
     free(path);
-    printf("[%ld] FINISHED WITH EXTRACTING FILES\n", pthread_self());
     QNode node = QueueNode_Create_Node(socket, TERMINATION_MSG);
         
     pthread_mutex_lock(&mutex_files_queue);
@@ -94,37 +62,32 @@ void* Server(void* arguments){
     pthread_cond_signal(&cond_queue_not_empty);   //notify that workers can start
 
 
+    /* server reads "ACK" from client until he reads an "END" --> then terminates */
     int FINISHED = 0;
     while(!FINISHED){
-        
-        // if ((read(socket, buffer, strlen(ACK_MSG))) < 0){
-        //     perror("SERVER: Read ACK message from client");
-        //     exit(EXIT_FAILURE);
-        // }
         Receive_Data(socket, buffer, strlen(ACK_MSG), "SERVER: Read ACK message from client");
         if (strncmp(buffer, TERM_MSG, strlen(TERM_MSG)) == 0){
-            printf("FIINISHED [%ld]\n", pthread_self());
+            printf("[Communication Thread: %ld] ---> Finished\n", pthread_self());
             FINISHED = 1;
             Clear_Buffer(buffer, MAX_LENGTH);
         }            
         else if(strncmp(buffer, ACK_MSG, strlen(ACK_MSG)) == 0){
-            //printf("buffer %s [%ld]\n", buffer, pthread_self());    
             Clear_Buffer(buffer, MAX_LENGTH);
         }
-
     }
 
-
-
+    /* delete socket and mutex from the Mutex_Socket_Queue -- this socket will close since client has received all files */
     pthread_mutex_lock(&mutex_socket_queue);
     Queue_Delete(Mutex_Socket_Queue, q_node);
     pthread_mutex_unlock(&mutex_socket_queue);
+
+    /* close socket*/
     if(close(socket) == -1){
-        perror("SERVER: Close new socket");
-        exit(EXIT_FAILURE);
+        Print_Error("SERVER: Close new socket");
     }
+
     free(arguments);
-    printf("[COMMUNICATION THREAD: %ld] ---> exits\n", pthread_self());
+    printf("[Communication Thread: %ld] ---> Exits\n", pthread_self());
     pthread_exit(NULL);
 
 }
@@ -141,9 +104,6 @@ char* Server_Receive_DirName_From_Client(int socket, char* buffer){
     Receive_Data(socket, &dir_length, sizeof(uint16_t),"SERVER: Read directory length");
     dir_length = ntohs(dir_length);
     Receive_Data(socket, buffer, dir_length,"SERVER: Read directory name");
-    // if((num_bytes_read = read(socket, buffer, MAX_LENGTH)) < 0){
-    //     perror("SERVER: Read directory name");
-    // }
     /* Server builds the path of the directory to open; it is relevant to the [DEFAULT_DIR] */
     char* path = (char*)calloc(strlen(DEFAULT_DIR) + strlen(buffer) + 1, sizeof(char));
     snprintf(path, strlen(DEFAULT_DIR) + strlen(buffer) + 1, "%s%s%c", DEFAULT_DIR, buffer, '\0');
@@ -155,9 +115,6 @@ char* Server_Receive_DirName_From_Client(int socket, char* buffer){
         fprintf(stdout, "Cannot open %s directory\n", path);
         Clear_Buffer(buffer, MAX_LENGTH);
         Send_Data(socket, WRONG_MSG, strlen(WRONG_MSG), "SERVER: WRITE \"WRONG DIR NAME\" ");
-        // if(write(socket, WRONG_MSG, strlen(WRONG_MSG)) < 0){
-        //     perror("SERVER: WRITE \"WRONG DIR NAME\" ");
-        // }
         printf("THREAD %ld is exiting\n", pthread_self());
         int error = 1;
         pthread_exit(&error);
@@ -171,14 +128,11 @@ char* Server_Receive_DirName_From_Client(int socket, char* buffer){
     /* send confirmation to the client, that the server got his request */
     char* mess = (char*)calloc(strlen(CONFIRMATION_MSG) + strlen(path) + 1, sizeof(char));
     snprintf(mess, strlen(CONFIRMATION_MSG) + strlen(path) + 1, "%s%s%c", CONFIRMATION_MSG, path, '\0');
-    printf("[COMMUNICATION THREAD: %ld] ---> %s\n", pthread_self(), mess);
+    printf("[Communication Thread: %ld] ---> %s\n", pthread_self(), mess);
     
     dir_length = htons(strlen(mess));
     Send_Data(socket, &dir_length, sizeof(uint16_t), "SERVER: WRITE CONFIRM_MSG length");
     Send_Data(socket, mess, strlen(mess), "SERVER: WRITE \"ABOUT TO SCAN DIR:\" ");
-    // if(write(socket, mess, strlen(mess)) < 0){
-    //     perror("SERVER: WRITE \"ABOUT TO SCAN DIR:\" ");
-    // }
     free(mess);
 
     return path;    /*path to the directory name to send to client */
@@ -189,6 +143,11 @@ char* Server_Receive_DirName_From_Client(int socket, char* buffer){
 
 /******************************************************************************************************************/
 
+/* Every communication thread of the Server: 
+   1. opens, reads and extract all files from the directory requested by the 
+      Client with whom server has connected through the socket
+   2. inserts one by one the files in the queue until queue is full, so that worker threads can remove the files
+      from the queue and send them to the right client */
 void Server_Extract_Files_From_Directory(int socket, char* path, int max_queue_size){
 
     /* Save the type of the node; directory or regular file */
@@ -197,8 +156,7 @@ void Server_Extract_Files_From_Directory(int socket, char* path, int max_queue_s
 
     /* get node status */
     if(stat(path, &node) < 0 ){
-        perror("SERVER: Stat while reading directory");
-        exit(EXIT_FAILURE);
+        Print_Error("SERVER: Stat while reading directory");
     }
 
     /* test against the S_IFMT flag to get the first 4 bits of the node to determine the file type */
@@ -221,7 +179,11 @@ void Server_Extract_Files_From_Directory(int socket, char* path, int max_queue_s
         //printf("Directory name: %s\n", curr_path);
 
         /* Read directory */
-        while ( (dir_entity = readdir(dir_ptr)) != NULL ){
+        pthread_mutex_lock(&mutex_dir);
+        dir_entity = readdir(dir_ptr);
+        pthread_mutex_unlock(&mutex_dir);
+
+        while ( dir_entity != NULL ){
             
             /* if the directory is not cwd or pwd */
             if((strcmp(dir_entity->d_name, ".") != 0) && (strcmp(dir_entity->d_name, "..") != 0)){
@@ -237,10 +199,11 @@ void Server_Extract_Files_From_Directory(int socket, char* path, int max_queue_s
 
                 free(final_path);
             }
-
+            pthread_mutex_lock(&mutex_dir);
+            dir_entity = readdir(dir_ptr);
+            pthread_mutex_unlock(&mutex_dir);
         }
         /* delete current path */
-        //memset(curr_path, 0, strlen(curr_path));
         free(curr_path);
 
         /* Close directory */
@@ -257,7 +220,7 @@ void Server_Extract_Files_From_Directory(int socket, char* path, int max_queue_s
         while(Queue_Size(Files_Queue) >= max_queue_size){
             pthread_cond_wait(&cond_queue_not_full, &mutex_files_queue);
         }
-        printf("ADDING FILE < %s > to the queue...\n", path);
+        printf("[Communication Thread: %ld] ---> ADDING FILE < %s > to the queue...\n", pthread_self(), path);
         Queue_Insert(Files_Queue, node);
         pthread_mutex_unlock(&mutex_files_queue);
 
@@ -267,103 +230,90 @@ void Server_Extract_Files_From_Directory(int socket, char* path, int max_queue_s
     return;
 }
 
+
 /*********************************************************************************************************************/
 
 
+/* Worker thread in the Server sends to a client associated with the socket:
+    1. the length of the path of the file
+    2. the size of the file 
+    3. the name of the file and return the name of the name of the file */
+unsigned int Server_Send_FileMetaData(int socket, const char* path_to_file){
+    
+    uint16_t file_length = 0;
+    uint32_t file_size = 0;
+    struct stat file_info;
+    memset(&file_info, '\0', sizeof(file_info));
+    /* find the size of the file */
+    if(stat(path_to_file, &file_info) < 0){
+        Print_Error("SERVER: Could not get info for the file to process");
+    }
+    //printf("FILE IS: %s\n", path_to_file);
+
+    file_length = htons(strlen(path_to_file));
+    //printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
+    Send_Data(socket, &file_length, sizeof(uint16_t), "SERVER: WRITE file length");
+
+    file_size = htonl(file_info.st_size);
+    //printf("WITHOUT: file size %ld\t WITH: file size %d\n\n",  file_info.st_size, file_size);
+    Send_Data(socket, &file_size, sizeof(uint32_t), "SERVER: WRITE file size");
+    Send_Data(socket, (char*)path_to_file, strlen(path_to_file), "SERVER: WRITE file name");
+    
+    return (uint32_t)file_info.st_size;
+}
+
+
+/*********************************************************************************************************************/
+
+
+/* Worker thread in the Server:
+   1. sends the File_MetaData to a client associated with the socket
+   2. reads the content of a file pre block_size from the server's filesystem
+   3. sends the content of a file pre block_size to a client associated with the socket */
 void Server_Send_Files_to_Client(int socket, const char* path_to_file, size_t block_size){   //func for threads + mutexes
 
-    uint16_t file_length = -1;
-    uint32_t file_size = -1;
-    int file_fd = -1;
-    struct stat file_info;
-    char* buffer = (char*)calloc(block_size + 1, sizeof(char));           //freeeeeeeeeeeeee
-    printf("[%ld] SENDS ----> %s\n", pthread_self(),path_to_file);
+    int file_fd = -1;    /*file desc for the file to read the content from */
+    uint32_t file_size = 0;
+    char* buffer = (char*)calloc(block_size + 1, sizeof(char));           
     if(strcmp(path_to_file, TERMINATION_MSG) != 0){
-        printf("[WORKER THREAD: %ld]  ----> RECEIVED TASK < %s, %d > **\n", pthread_self(), path_to_file, socket);
-        memset(&file_info, '\0', sizeof(file_info));
-        /* find the size of the file */
-        if(stat(path_to_file, &file_info) < 0){
-            perror("SERVER: Could not get info for the file to process");
-            exit(EXIT_FAILURE);
-        }
-        printf("FILE IS: %s\n", path_to_file);
+        printf("[Worker Thread: %ld]  ----> RECEIVED TASK < %s, %d > \n", pthread_self(), path_to_file, socket);
+        
+        /* SEND FILE METADATA */
+        file_size = Server_Send_FileMetaData(socket, path_to_file);
 
-        file_length = htons(strlen(path_to_file));
-        printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
-        Send_Data(socket, &file_length, sizeof(uint16_t), "SERVER: WRITE file length");
-        // if(write(socket, &file_length, sizeof(uint16_t)) < 0){
-        //     perror("SERVER: WRITE file length");
-        // }
-
-        file_size = htonl(file_info.st_size);
-        printf("WITHOUT: file size %ld\t WITH: file size %d\n\n",  file_info.st_size, file_size);
-        Send_Data(socket, &file_size, sizeof(uint32_t), "SERVER: WRITE file size");
-        // if(write(socket, &file_size, sizeof(uint32_t)) < 0){
-        //     perror("SERVER: WRITE file size");
-        // }
-        Send_Data(socket, (char*)path_to_file, strlen(path_to_file), "SERVER: WRITE file name");
-        // if(write(socket, path_to_file, strlen(path_to_file)) < 0){
-        //     perror("SERVER: WRITE file name");
-        // }
-
-        //printf("[%ld]  ----> BEFORE OPENING FILE %s\n", pthread_self(), path_to_file);
-        /* SENDING THE FILE*/
+        /* SEND FILE CONTENT */
         while ((file_fd = open(path_to_file, O_RDONLY)) < 0){
-            //if (errno == EINTR) continue;
-            perror("SERVER: Could not open file to read");
-            exit(EXIT_FAILURE);	
+            Print_Error("SERVER: Could not open file to read");
         }
-        int bytes_to_send = file_info.st_size;
-        printf("[WORKER THREAD: %ld]  ----> ABOUT TO READ FILE ** %s **\n", pthread_self(), path_to_file);
+        unsigned int bytes_to_send = file_size;
+        printf("[Worker Thread: %ld]  ----> ABOUT TO READ FILE < %s >\n", pthread_self(), path_to_file);
         while(bytes_to_send){
 
             if(bytes_to_send < block_size)
                 block_size = bytes_to_send;
-            // if((bytes_read = read(file_fd, buffer, block_size)) < 0){
-            //     perror("SERVER: Read file content"); 
-            //     exit(EXIT_FAILURE);
-            // }
             Receive_Data(file_fd, buffer, block_size, "SERVER: Read file content");
-            //bytes_to_write = bytes_read;
-            //printf("%s\n", buffer);
             Send_Data(socket, buffer, block_size, "SERVER: WRITE file to socket");
-            // while(bytes_to_write){
-            //     if((bytes_written = write(socket, buffer, bytes_to_write)) < 0){
-            //         perror("SERVER: WRITE file to socket");
-            //         exit(EXIT_FAILURE);
-            //     }
-            //     bytes_to_write -= bytes_written;
-            // }
 
             bytes_to_send -= block_size;
             Clear_Buffer(buffer, block_size+1);
         }
-        printf("SERVER: after sending file to socket\n");
-
+        /* close file in the server's file system */
         if(close(file_fd) == -1){
-            perror("SERVER: Close file");
-            exit(EXIT_FAILURE);
+            Print_Error("SERVER: Close file");
         }
 
     }
     else{
+        printf("[Worker Thread: %ld]  ----> SENDS < %s, %d > \n", pthread_self(), path_to_file, socket);
+        uint16_t file_length = 0;
         file_length = htons(strlen(path_to_file));
-        printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
-        Send_Data(socket, &file_length, sizeof(uint16_t), "SERVER: WRITE file length");
-        // if(write(socket, &file_length, sizeof(uint16_t)) < 0){
-        //     perror("SERVER: WRITE file length");
-        // }
+        //printf("WITHOUT: file length %ld\t WITH: file length %d\n",  strlen(path_to_file), file_length);
+        Send_Data(socket, &file_length, sizeof(uint16_t), "SERVER: WRITE term msg length");
 
         file_size = htonl(0);
-        printf("WITHOUT: file size %d\t WITH: file size %d\n\n",  file_size, file_size);
-        Send_Data(socket, &file_size, sizeof(uint32_t), "SERVER: WRITE file size");
-        // if(write(socket, &file_size, sizeof(uint32_t)) < 0){
-        //     perror("SERVER: WRITE file size");
-        // }
-        Send_Data(socket, (char*)path_to_file, strlen(path_to_file), "SERVER: WRITE file name");
-        // if(write(socket, path_to_file, strlen(path_to_file)) < 0){
-        //     perror("SERVER: WRITE file name");
-        // }
+        //printf("WITHOUT: file size %d\t WITH: file size %d\n\n",  file_size, file_size);
+        Send_Data(socket, &file_size, sizeof(uint32_t), "SERVER: WRITE term msg size");
+        Send_Data(socket, (char*)path_to_file, strlen(path_to_file), "SERVER: WRITE term msg");
     }
     free(buffer);
 }
@@ -388,7 +338,7 @@ void ThreadPool_Initialize(Worker_Threads_Args* args){
 
     for(int i=0; i < total_worker_threads; i++){
         if ((err = pthread_create(&args->worker_threads[i], NULL, ThreadPool_WorkerThread_Runs, (void*)args)) != 0) { /* New worker thread */
-            Print_Error_Value("SERVER: [WORKER THREADS] Error in pthread_create", err);
+            Print_Error_Value("SERVER: [Worker Threads] Error in pthread_create", err);
         }
         // printf("ORIGINAL THREAD: [%ld] WORKER THREAD: [%ld]\n", 
         // pthread_self(), args->worker_threads[i]);
@@ -411,12 +361,11 @@ void* ThreadPool_WorkerThread_Runs(void* arguments){
     while(RUNNING){
 
         pthread_mutex_lock(&mutex_files_queue);
-        //printf("SEND: thread [%ld] gets mutex -- blocksize %ld\n", pthread_self(), block_size);
         while(Queue_isEmpty(Files_Queue) && RUNNING){
             pthread_cond_wait(&cond_queue_not_empty, &mutex_files_queue);
         }
         if (!RUNNING){   /* needed when SIGINT is sent to server */
-            pthread_mutex_unlock(&mutex_files_queue);   /* thread which has the mutex, releases it */
+            pthread_mutex_unlock(&mutex_files_queue);   /* thread which has the mutex when ^C is sent, releases it */
             break;
         } 
         QNode popped_node = Queue_Pop(Files_Queue);
@@ -424,14 +373,12 @@ void* ThreadPool_WorkerThread_Runs(void* arguments){
         int socket = QueueNode_GetSocket(popped_node);
         QNode mtx_sock_node = Queue_Find(Mutex_Socket_Queue, socket);
         QueueNode_LockMutex(mtx_sock_node);
-        //printf("^^^^^^^^ LOCK MUTEX FOR SOCKET ^^^^^^^^^   ---> [%ld]\n", pthread_self());
         pthread_mutex_unlock(&mutex_files_queue);
-        pthread_cond_signal(&cond_queue_not_full);   //notify that workers can start
+        pthread_cond_signal(&cond_queue_not_full);   /* notify workers to start */
 
         Server_Send_Files_to_Client(socket, path_to_file, block_size);
         QueueNode_Delete(popped_node);
 
-        //printf("^^^^^^^^ UNLOCK MUTEX FOR SOCKET ^^^^^^^^^   ---> [%ld]\n", pthread_self());
         QueueNode_UnlockMutex(mtx_sock_node);
 
     }
@@ -453,7 +400,7 @@ void ThreadPool_Destroy(Worker_Threads_Args* args){
     int total_worker_threads = args->total_worker_threads;
     for(int i=0; i < total_worker_threads; i++){
         pthread_join(args->worker_threads[i], NULL);
-        printf("[WORKER THREAD: %ld] -----> EXITS\n", 
+        printf("[Worker Thread: %ld] -----> Exits\n", 
         args->worker_threads[i]);
     }
     free(args->worker_threads);

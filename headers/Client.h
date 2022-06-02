@@ -6,7 +6,7 @@
 #include "Queue.h"
 
 #define TOTAL_ARGS_CLIENT 7
-#define OUT_DIR "SERVER_COPY_" 
+#define OUT_DIR "SERVER_COPY_"   /* directory name format for the directory where the copied files will be stored */
 
 /* Process of the remoteClient -> the client is connected to the dataServer through a socket
    and asks for a directory from the server in order to copy it in its file system*/

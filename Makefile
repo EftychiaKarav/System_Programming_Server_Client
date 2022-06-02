@@ -55,7 +55,7 @@ run: all $(SERVER)
 #################################################################################
 
 clean:
-	rm -rf $(OBJECTS) *COPY*
+	rm -rf $(OBJECTS) *COPY* result.txt
 	rm -f $(SERVER) $(CLIENT) text*
 
 #################################################################################
@@ -63,10 +63,6 @@ clean:
 valgrind1: clean all $(SERVER)
 	valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes --trace-children=yes ./$(SERVER)
 
-
-# commands:
-# 	sudo umount /mnt/d
-# 	sudo mount -t drvfs D: /mnt/d -o metadata
 
 # ./remoteClient -i 127.0.0.1 -p 8000 -d ../SEMESTER_6/SYSPRO/System_Programming_Exec1_Sniffer
 # ./dataServer -p 9000 -q 8 -s 6 -b 1024

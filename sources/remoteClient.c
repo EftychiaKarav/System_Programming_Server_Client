@@ -7,6 +7,7 @@ int main(int argc, char* argv[]){
         Print_Error("Wrong number of arguments in the command line");
     }
 
+    char* IP = NULL;
     uint16_t port = -1;
     char* directory = NULL;
     int socket_number = -1;
@@ -28,7 +29,7 @@ int main(int argc, char* argv[]){
                 herror("Given IP-address could not be resolved\n");
                 exit(EXIT_FAILURE);
             }
-		    printf("IP-address:%s Resolved to: %s\n", argv[i+1],server_entity->h_name);
+            IP = argv[i+1];
         }
 
         else if(!strcmp(argv[i], "-p")){
@@ -60,15 +61,16 @@ int main(int argc, char* argv[]){
     if (connect(socket_number, serverptr, sizeof(server)) < 0)
 	   Print_Error("Client could not connect to Server");
     
-    printf("Connecting to %d in port %d\n", server.sin_addr.s_addr, port);
+    printf("Client's parameters are:\nServer IP: %s\nPort: %d\nDirectory: %s\n", IP, port, directory);
+	printf("IP-address:%s --> Resolved to: %s\n", IP,server_entity->h_name);
+    printf("Connecting to %s on port %d\n\n\n", IP, port);
 
     /* Client Process */
     Client(socket_number, directory);
     
     /* Close the socket */
     if(close(socket_number) == -1){
-        perror("CLIENT: Close socket");
-        exit(EXIT_FAILURE);
+        Print_Error("CLIENT: Close socket");
     }
 
     /* Close file descriptors for stdin, stdout, stderr */

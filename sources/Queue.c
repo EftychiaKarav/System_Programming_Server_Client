@@ -4,17 +4,16 @@
 
 
 union Data_Node{
-    char* fileName;
-    pthread_mutex_t mutex_socket;
+    char* fileName;                  /* for Files_Queue */
+    pthread_mutex_t mutex_socket;    /* for Mutex_Socket_Queue */
 };
 
 
 struct Queue_Node{
     
-    //char* fileName;    //either name of the FIFO for the worker, or the name of the link location for the links
-    unsigned int socket; //either pid for worker or number of occurences for a link
-    Data data;
-    QNode next;
+    unsigned int socket; /* socket number */
+    Data data;           /* either filename or a mutex */
+    QNode next;          /* pointer to the next node */
 };
 
 Queue Files_Queue = NULL;
@@ -22,43 +21,60 @@ Queue Mutex_Socket_Queue = NULL;
 
 /**************************************************************************************************/
 
+/* methods for Datatype Queue_Node -> QNode is a pointer to Queue_Node */
+
 QNode QueueNode_Create_Node(unsigned int socket, void* data){
     
     QNode queue_node = (QNode)calloc(1, sizeof(struct Queue_Node));
     Data data_node = (Data)calloc(1, sizeof(union Data_Node));
     if ((queue_node == NULL) || (data_node == NULL)){
-        return NULL;    //se error kati na valo
+        return NULL;    
     }
     queue_node->socket = socket;
     queue_node->data = data_node;
-    if(data != NULL){
+    if(data != NULL){     /* it is a node for the Files_Queue */
         char* filename_path = (char*)data;
         queue_node->data->fileName = (char*)calloc(strlen(filename_path)+1, sizeof(char));
         strcpy(queue_node->data->fileName, filename_path);
         queue_node->next = NULL;
 
     }
-    else{
-        //pthread_mutex_t mutex_socket;
+    else{    /* it is a node for the Mutex_Socket_Queue */
         pthread_mutex_init(&queue_node->data->mutex_socket, NULL);
-        // = mutex_socket;
     }
-    //printf("%s, %ld\n", queue_node->FIFO_name, strlen(queue_node->FIFO_name));
-
-    //free(LinkName);
     return queue_node;
 
 }
 
-void QueueNode_LockMutex(QNode qnode){
-    pthread_mutex_lock(&qnode->data->mutex_socket);
+/* releases memory only -- does not disconnect nodes */
+void QueueNode_Delete(QNode q_node){ 
 
+    if(q_node->data->fileName != NULL){
+        free(q_node->data->fileName);
+    }
+    else{
+        pthread_mutex_destroy(&q_node->data->mutex_socket);
+    }
+    free(q_node->data);
+    free(q_node);
 }
 
+
+
+/**************************************************************************************************/
+
+
+/* methods for the attributes of the Queue */
+
+/* lock the mutex for a specific socket */
+void QueueNode_LockMutex(QNode qnode){
+    pthread_mutex_lock(&qnode->data->mutex_socket);
+}
+
+/* unlock the mutex for a specific socket */
 void QueueNode_UnlockMutex(QNode qnode){
     pthread_mutex_unlock(&qnode->data->mutex_socket);
 }
-
 
 
 unsigned int QueueNode_GetSocket(QNode queue_node){
@@ -77,17 +93,6 @@ QNode QueueNode_Next(QNode q_node){
     return q_node->next;
 }
 
-void QueueNode_Delete(QNode q_node){
-
-    if(q_node->data->fileName != NULL){
-        free(q_node->data->fileName);
-    }
-    else{
-        pthread_mutex_destroy(&q_node->data->mutex_socket);
-    }
-    free(q_node->data);
-    free(q_node);
-}
 
 
 /**************************************************************************************************/
@@ -105,7 +110,7 @@ Queue Queue_Initialize(){
 
     Queue queue = malloc(sizeof(struct Queue));
     if (queue == NULL){
-        return NULL;    //se error kati na valo
+        return NULL;    
     }
     queue->first = NULL;
     queue->last = NULL;
@@ -141,8 +146,8 @@ void Queue_Insert(Queue queue, QNode queue_node){
 void Queue_Destroy(Queue queue){
 
     while (queue->first != NULL && queue->size != 0){
-        QNode node = Queue_Pop(queue);
-        QueueNode_Delete(node);
+        QNode node = Queue_Pop(queue);   /* disconnects node from queue */
+        QueueNode_Delete(node);          /* release memory */
     }
     free(queue);
 
@@ -156,9 +161,6 @@ QNode Queue_Pop(Queue queue){
     QNode node_to_be_popped = queue->first;
     queue->first = queue->first->next;
     queue->size--;
-    // if (queue->size == 1){
-    //     queue->last = queue->first;
-    // }
     return node_to_be_popped;
     
 }
@@ -181,7 +183,7 @@ void Queue_Delete(Queue queue, QNode q_node){
         q_node = Queue_Pop(queue);
         QueueNode_Delete(q_node);
     }
-    else{
+    else{            /* find node and disconnect it from queue */
         QNode prev_node = queue->first;
         QNode node_to_delete = queue->first->next;
         while(node_to_delete != q_node){

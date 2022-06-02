@@ -13,16 +13,17 @@ typedef union Data_Node*         Data;
 
 /**************************************************************************************************/
 
-//  methods for Datatype Queue_Node -> a QNode in our case is either a link or a worker 
+//  methods for Datatype Queue_Node -> QNode is a pointer to Queue_Node
 QNode QueueNode_Create_Node(unsigned int, void*);
+QNode QueueNode_Next(QNode);
+void QueueNode_Delete(QNode);
+
+// methods for the attributes of the Queue 
 unsigned int QueueNode_GetSocket(QNode);
 char* QueueNode_GetFileName(QNode);
 pthread_mutex_t QueueNode_GetMutex(QNode);
 void QueueNode_LockMutex(QNode);
 void QueueNode_UnlockMutex(QNode);
-QNode QueueNode_Next(QNode);
-void QueueNode_Delete(QNode);
-
 
 //  methods for Queue
 Queue Queue_Initialize();
@@ -39,6 +40,4 @@ QNode Queue_Find(Queue, unsigned int);
 void Queue_Print(const Queue);
 
 
-extern Queue Files_Queue;
-extern Queue Mutex_Socket_Queue;
 #endif
