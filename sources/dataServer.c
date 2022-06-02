@@ -48,9 +48,9 @@ int main(int argc, char* argv[]){
     /* Sigaction for server */
     struct sigaction server_action;
     memset(&server_action, 0, sizeof(struct sigaction));
-    server_action.sa_handler = Stop_Server;   //handle ^C and ^Z 
+    server_action.sa_handler = Stop_Server;   //handle ^C 
 	sigaction(SIGINT, &server_action, NULL);
-    server_action.sa_handler = SIG_DFL;
+    server_action.sa_handler = SIG_DFL;   //handle ^Z the default way
     sigaction(SIGTSTP, &server_action, NULL);
 
 
@@ -80,8 +80,10 @@ int main(int argc, char* argv[]){
     printf("SERVER's IP is: %d, or %s\n", server.sin_addr.s_addr, inet_ntoa(server.sin_addr));
     
     /* Bind socket to address */
-    if (bind(socket_number, serverptr, sizeof(server)) < 0)
+    if (bind(socket_number, serverptr, sizeof(server)) < 0){
+        perror("bind");
         Print_Error("Server: Could not bind");
+    }
     
     /* Listen for connections --> max 20 Clients */
     if (listen(socket_number, 20) < 0)

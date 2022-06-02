@@ -5,7 +5,7 @@
    and asks for a directory from the server in order to copy it in its file system*/
 void Client(int socket, char* directory){
 
-    char* buffer = (char*)calloc(MAX_LENGTH, sizeof(char));
+    char buffer[MAX_LENGTH+1] = {0};
     uint32_t* numbers_buffer = (uint32_t*)calloc(1, sizeof(uint32_t)); 
     size_t block_size = 0;
     int num_bytes_read = -1;
@@ -38,7 +38,7 @@ void Client(int socket, char* directory){
         }
 
         block_size = ntohl(*numbers_buffer);
-        printf("WITHOUT: block size %d\t WITH: block size %ld\n",  *(uint32_t*)buffer, block_size);
+        printf("WITHOUT: block size %d\t WITH: block size %ld\n",  *numbers_buffer, block_size);
         
         if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
             perror("CLIENT: Write ACK message");
@@ -55,8 +55,6 @@ void Client(int socket, char* directory){
         exit(EXIT_FAILURE);
     }
 
-
-    free(buffer);
     free(numbers_buffer);
     return;
 }
@@ -83,11 +81,11 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
         }
     }
 
-    char* content_buffer = (char*)calloc(block_size, sizeof(char));   //buffer for reading file content
+    char* content_buffer = (char*)calloc(block_size+1, sizeof(char));   //buffer for reading file content
     
     do{
         Clear_Buffer(buffer, MAX_LENGTH);
-        unsigned int file_size = 0;
+        uint32_t file_size = 0;
         char* path = Client_Get_FileMetaData(socket, buffer, &file_size);
         printf("CLIENT GOT path: %s \n", path);
 
@@ -95,29 +93,35 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
         if(strncmp(path, TERMINATION_MSG, strlen(TERMINATION_MSG)) != 0){
             
             file_fd = Client_Resolve_FilePath(path, output_dir);
-            if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
-                perror("CLIENT: Write ACK message");
+            // if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
+            //     perror("CLIENT: Write ACK message");
 
 
             printf("fd = %d wrote ack, before reading content\n", file_fd);
             /* GET THE CONTENT OF THE FILE*/
-            Clear_Buffer(buffer, MAX_LENGTH);
-            int bytes_to_read = file_size;
-            int bytes_read = 0;
-            while(bytes_to_read){
+            //Clear_Buffer(buffer, MAX_LENGTH);
+            int bytes_to_recv = file_size;
+            int bytes_read = 0, bytes_to_write = 0, bytes_written = 0;
 
-                if(bytes_to_read < block_size)
-                    block_size = bytes_to_read;
+            while(bytes_to_recv){
+
+                if(bytes_to_recv < block_size)
+                    block_size = bytes_to_recv;
                 if((bytes_read = read(socket, content_buffer, block_size)) < 0){
                     perror("CLIENT: Read file content from socket");
-                }
-                if(write(file_fd, (const char*)content_buffer, block_size) < 0){
-                    perror("SERVER: WRITE file content");
                     exit(EXIT_FAILURE);
                 }
-                printf("%s\n", content_buffer);
-                Clear_Buffer(content_buffer, block_size);
-                bytes_to_read -= block_size;
+                bytes_to_write = bytes_read;
+                while(bytes_to_write){
+                    if((bytes_written = write(file_fd, (const char*)content_buffer, bytes_to_write)) < 0){
+                        perror("SERVER: WRITE file content");
+                        exit(EXIT_FAILURE);
+                    }
+                    bytes_to_write -= bytes_written;
+                }
+                bytes_to_recv -= bytes_read;
+                //printf("%s\n", content_buffer);
+                Clear_Buffer(content_buffer, bytes_read);
             }
             if(close(file_fd) == -1){      /* close file descriptor of the copied file */
                 perror("CLIENT: Close file after copying");
@@ -128,7 +132,8 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
         printf("Received: %s\n\n", path);
         if (write(socket, ACK_MSG, strlen(ACK_MSG)) < 0)
             perror("CLIENT: Write ACK message");
-        
+        if(strcmp("/mnt/d/Docs/./B_SEMESTER/ERGASIA1/ERGASIA1.zip", path) == 0)
+            printf("%s\n", buffer);
         free(path);
     }while(strncmp(buffer, TERMINATION_MSG, strlen(TERMINATION_MSG)) != 0);
 
@@ -144,26 +149,29 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
 /* Read 1. the length of the path of the file
         2. the size of the file 
         3. the name of the file and return the name of the name of the file*/
-char* Client_Get_FileMetaData(int socket, char* buffer, unsigned int* file_size){
+char* Client_Get_FileMetaData(int socket, char* buffer, uint32_t* file_size){
     
     int num_bytes_read = -1;
-    /* buffer to read the filepath_length and file_size */
-    uint32_t* numbers_buffer = (uint32_t*)calloc(1, sizeof(uint32_t));
-    memset(numbers_buffer, 0 , sizeof(uint32_t));
+    /* buffers to read the filepath_length and file_size */
+    uint16_t* length_buffer = (uint16_t*)calloc(1, sizeof(uint16_t));
+    memset(length_buffer, 0 , sizeof(uint16_t));
+
+    uint32_t* size_buffer = (uint32_t*)calloc(1, sizeof(uint32_t));
+    memset(size_buffer, 0 , sizeof(uint32_t));
 
     /* 1. Receive the length of the path of the file */
-    while((num_bytes_read = read(socket, numbers_buffer, sizeof(uint16_t))) < 0){
+    while((num_bytes_read = read(socket, length_buffer, sizeof(uint16_t))) < 0){
         perror("CLIENT: READ file path length ");
     }
-    uint16_t file_length = ntohs(*numbers_buffer);     //convert from Network Byte Order to host order 
-    printf("WITHOUT: file length %d\t WITH: file length %d\n",  *numbers_buffer, file_length);
+    uint16_t file_length = ntohs(*length_buffer);     //convert from Network Byte Order to host order 
+    printf("WITHOUT: file length %d\t WITH: file length %d\n",  *length_buffer, file_length);
 
     /* 2. Receive the size of the file */
-    while((num_bytes_read = read(socket, numbers_buffer, sizeof(uint32_t))) < 0){
+    while((num_bytes_read = read(socket, size_buffer, sizeof(uint32_t))) < 0){
         perror("CLIENT: READ file size ");
     }
-    *file_size = ntohl(*numbers_buffer);   //convert from Network Byte Order to host order
-    printf("WITHOUT: file size %d\t WITH: file size %d\n",  *numbers_buffer, *file_size);
+    *file_size = ntohl(*size_buffer);   //convert from Network Byte Order to host order
+    printf("WITHOUT: file size %d\t WITH: file size %d\n",  *size_buffer, *file_size);
 
     /* 3. Receive the name of the path of the file along with the name of the file */
     while((num_bytes_read = read(socket, buffer, file_length)) < 0){
@@ -174,7 +182,8 @@ char* Client_Get_FileMetaData(int socket, char* buffer, unsigned int* file_size)
     char* path = (char*)calloc(file_length+1, sizeof(char));
     memcpy(path, buffer, strlen(buffer));
 
-    free(numbers_buffer);
+    free(size_buffer);
+    free(length_buffer);
 
     return path;    /* return the path of the file */
 }
