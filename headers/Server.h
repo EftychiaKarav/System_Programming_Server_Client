@@ -64,6 +64,11 @@ char* Server_Receive_DirName_From_Client(int, char*);
 void Server_Extract_Files_From_Directory(int, char*, int);
 
 
+/* communication thread in the server inserts a file name with the respective socket number to the shared queue,
+   by locking and unlocking the respective mutex -- waits while the queue is full */
+void Server_Insert_Files_To_Queue(int, char*, int);
+
+
 /* Worker thread in the Server sends to a client associated with the socket:
     1. the length of the path of the file
     2. the size of the file 

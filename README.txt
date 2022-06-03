@@ -83,6 +83,18 @@ In this project, Queue is used to save information for 2 entities.
 
 More information for the purpose of those queues below (see Server.c--Server.h)
 
+
+
+
+
+
+
+
+
+
+
+
+**************** will seeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee*********************
 1. H oura einai FIFO kai sygkekrimena gia ka8e worker apo8hkeuetai to pid tou kai to onoma tou named_pipe (FIFO),
 to opoio xrhsimeuei sthn epikoinvnia tou me ton manager. Dhladh otan o manager dialegei enan worker gia na toy 
 ana8esei ena arxeio, aytomata gnvrizei kai to onoma tou FIFO pou syndeei ton manager me ton sygkekrimeno worker.
@@ -101,9 +113,26 @@ emfanizetai se ena arxeio. Ginetai mia aplh anazhthsh sta hdh yparxonta links. A
 ta occurences, alliws to pros8etoume sthn oura.
 
 
------------------------------------------Signalhandlers.c--Signalhandlers.h-----------------------------------------
+-------------------------------------------------Server.c--Server.h-------------------------------------------------
 
-Periexoun tous Signal handlers gia na diaxeirizetai sygkekrimena signals ston manager kai stous workers. 
+These files contain the implementation of the dataServer after a client is connected to the server. The functions in 
+these files, are basically the different tasks the server has to do from the moment a client is connected to him. The 
+Server creates the "ThreadPool" (the Worker_Threads), right before he starts receiving connections from Clients. When 
+a new Client is connected to the Server, then a new Communication_Thread is created, which communicates with this
+specific Client through a unique socket number, which was acquired by both Server and Client when the connection was
+established. When either of the sides closes the socket, the connection terminates.  
+
+
+--------------------------------------------------Client.c-Client.h-------------------------------------------------
+
+
+---------------------------------------------------TCP / IP PROTOCOL------------------------------------------------
+DATASERVER
+1. 
+2.
+3.
+4.
+functions are implemented Periexoun tous Signal handlers gia na diaxeirizetai sygkekrimena signals ston manager kai stous workers. 
 
 1. MANAGER  --> exei signal handlers gia na diaxeirizetai:
     a. to SIGINT, otan o xrhsths plhktrologhsei ^C gia na termatisei to programma. Allazei to mode tou fd[READ] tou 
@@ -117,7 +146,7 @@ Periexoun tous Signal handlers gia na diaxeirizetai sygkekrimena signals ston ma
     RUNNING tous se false.
 
 
--------------------------------------------------Manager.c-Manager.h------------------------------------------------
+--------------------------------------------------Client.c-Client.h-------------------------------------------------
 
 Periexoun synarthseis pou syn8etoun th douleia pou ektelei o manager kath8s epishs kai th douleia tou listener.
 1. O listener pou dhmioutgeitai me fork() apo ton manager ektelei me execlp thn inotifywait me orismata -m (gia na 
@@ -143,7 +172,7 @@ vriskontai kai sth syneceia SIGTSTP gia na allaxei to RUNNING se false kai na di
 7. Yparxei kai h synarthsh gia thn apodesmeush ths mnhmhs gia oles tis diergasies.
  
 
--------------------------------------------------Worker.c--Worker.h-------------------------------------------------
+----------------------------------------------------dataServer.c----------------------------------------------------
 
 Periexoun synarthseis pou syn8etoun th douleia pou ekteloun oi workers. 
 
@@ -164,7 +193,7 @@ ginetai overwrite !!)
 12. Otan stamathsei, kleinei to fd tou FIFO tou, apodesmeuei mnhmh kai termatizei.
 
 
--------------------------------------------------------sniffer.c----------------------------------------------------
+---------------------------------------------------remoteClient.c----------------------------------------------------
 
 Periexei th main function tou programmatos. 
 1. Arxika ginetai kapoios elegxos sxetika me ta orismata sth grammh entolwn.

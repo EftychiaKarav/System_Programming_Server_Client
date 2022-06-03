@@ -18,7 +18,7 @@ int main(int argc, char* argv[]){
 	struct hostent* server_entity = NULL;
 
     /* Check if the command line arguments are correct */
-    
+
     for(int i=1; i < TOTAL_ARGS_CLIENT; i+=2){
 
         if(!strcmp(argv[i], "-i")){
@@ -56,7 +56,8 @@ int main(int argc, char* argv[]){
     /* connect to server */
     server.sin_family = AF_INET;       /* Internet domain */
     //memcpy(&server.sin_addr, server_entity->h_addr, server_entity->h_length);
-    server.sin_port = port;         /* Server port */
+    server.sin_port = port;            /* Server port */
+    
     /* Initiate connection */
     if (connect(socket_number, serverptr, sizeof(server)) < 0)
 	   Print_Error("Client could not connect to Server");

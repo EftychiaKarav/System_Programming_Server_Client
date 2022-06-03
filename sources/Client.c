@@ -7,41 +7,49 @@ void Client(int socket, char* directory){
 
     char buffer[MAX_LENGTH+1] = {0};
     uint32_t* numbers_buffer = (uint32_t*)calloc(1, sizeof(uint32_t)); 
-    uint16_t dir_length = htons(strlen(directory));
-
-    //printf("CLIENT SOCKET %d\n", socket);
+    
+    /* 1. Send to the server the length of the directory name to acquire */
+    uint16_t dir_length = htons(strlen(directory));          /* convert from host order to Network Byte Order */
     Send_Data(socket, &dir_length, sizeof(uint16_t), "CLIENT: Write directory length");
+
+    /* 2. Send to the server the directory name to acquire */
     Send_Data(socket, directory, strlen(directory), "CLIENT: Write directory name");
+
+    /* 3. Receive the length of the directory path in the server's filesystem */
     Receive_Data(socket, &dir_length, sizeof(uint16_t), "CLIENT: READ \"WRONG DIR LENGTH\" ");
-    dir_length = ntohs(dir_length);
+    dir_length = ntohs(dir_length);        //convert from Network Byte Order to host order 
+
+    /* 4. Receive the name of the directory path in the server's filesystem */
     Receive_Data(socket, buffer, dir_length, "CLIENT: READ \"WRONG DIR NAME\" ");
+
+    /* 5. bulid a message to confirm what server has sent */
     int mess_length = strlen(CONFIRMATION_MSG) + strlen(directory) + strlen(DEFAULT_DIR);
     char* confirm_mess = (char*)calloc(mess_length + 1, sizeof(char));
     snprintf(confirm_mess, mess_length + 1, "%s%s%s%c", CONFIRMATION_MSG, DEFAULT_DIR, directory, '\0');
     
     size_t block_size = 0;
-    if(!strncmp(buffer, WRONG_MSG, strlen(WRONG_MSG)))
+    if(!strncmp(buffer, WRONG_MSG, strlen(WRONG_MSG)))      /* server has sent "wrong dir name" */
         exit(EXIT_FAILURE);
-    else if(!strncmp(buffer, confirm_mess, strlen(confirm_mess))){
+    else if(!strncmp(buffer, confirm_mess, strlen(confirm_mess))){   /* server has sent "About to scan [dir name] " */
         
-        //printf("Waiting to get the files from server\n");
-        //printf("buffer: %s\n", (char*)buffer);
+        /* 6. Send confirmation to the server */
         Send_Data(socket, ACK_MSG, strlen(ACK_MSG), "CLIENT: Write ACK message");
+        
+        /* 7. Receive block size from server */
         Receive_Data(socket, numbers_buffer, sizeof(uint32_t), "CLIENT: READ block size ");
+        block_size = ntohl(*numbers_buffer);          //convert from Network Byte Order to host order 
 
-
-        block_size = ntohl(*numbers_buffer);
-        //printf("WITHOUT: block size %d\t WITH: block size %ld\n",  *numbers_buffer, block_size);
+        /* 8. Send confirmation to the server */
         Send_Data(socket, ACK_MSG, strlen(ACK_MSG), "CLIENT: Write ACK message");
 
     }
     free(confirm_mess);
-    //printf("\n\nbefore start reading do -- while\n");
 
+    /* 9. client copies file in his file system */
     Client_CopyFiles(socket, buffer, block_size);
 
+    /* 10. Send confirmation to the server */
     Send_Data(socket, TERM_MSG, strlen(TERM_MSG), "CLIENT: Write TERM message");
-
 
     free(numbers_buffer);
     return;
@@ -60,26 +68,30 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
     char* output_dir = (char*)calloc(strlen(OUT_DIR) + 6, sizeof(char)); //5 is for pid and 1 for '\0'
     snprintf(output_dir, strlen(OUT_DIR) + 6, "%s%d%c", OUT_DIR, getpid(), '\0');
     
+    /* 2. check if [output_dir] already exists */
     struct stat dir_info;
     memset(&dir_info, 0, sizeof(struct stat));
-    if (stat(output_dir, &dir_info) < 0){    // check if [output_dir] exists
+    if (stat(output_dir, &dir_info) < 0){    
         if(mkdir(output_dir, 0744) == -1){
             Print_Error("CLIENT: Could not create output directory");
         }
     }
 
-    char* content_buffer = (char*)calloc(block_size+1, sizeof(char));   //buffer for reading file content
+    char* content_buffer = (char*)calloc(block_size+1, sizeof(char));      //buffer for reading file content
     
     do{
         Clear_Buffer(buffer, MAX_LENGTH);
+        
+        /* 3. Receive the length of the file path name, file size and the file name */
         uint32_t file_size = 0;
         char* path = Client_Get_FileMetaData(socket, buffer, &file_size);
 
         int file_fd = -1;
         if(strncmp(path, TERMINATION_MSG, strlen(TERMINATION_MSG)) != 0){
             
+            /* 4. Create server's file system hierarchy and create and open the new file to write to */
             file_fd = Client_Resolve_FilePath(path, output_dir);
-            /* GET THE CONTENT OF THE FILE*/
+            
             int bytes_to_recv = file_size;
             int bytes_read = 0;
 
@@ -87,19 +99,24 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
 
                 if(bytes_to_recv < block_size)
                     block_size = bytes_to_recv;
-
+                
+                /* 5. Receive the content of the file block size by block size */
                 Receive_Data(socket, content_buffer, block_size, "CLIENT: Read file content from socket");
-                Send_Data(file_fd, (char*)content_buffer, block_size, "SERVER: WRITE file content");
+                
+                /* 5. Write the content of the file to the new file block size by block size */
+                Send_Data(file_fd, (char*)content_buffer, block_size, "CLIENT: WRITE file content");
+                
                 bytes_to_recv -= block_size;
-                //printf("%s\n", content_buffer);
                 Clear_Buffer(content_buffer, bytes_read);
             }
-            if(close(file_fd) == -1){      /* close file descriptor of the copied file */
+            /* 6. close file descriptor of the copied file */
+            if(close(file_fd) == -1){      
                 Print_Error("CLIENT: Close file after copying");
             }
 
         }
         printf("Received: %s\n\n", path);
+        /* 7. Send confirmation to the server */
         Send_Data(socket, ACK_MSG, strlen(ACK_MSG), "CLIENT: Write ACK message");
         free(path);
 
@@ -119,26 +136,24 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
         3. the name of the file and return the name of the name of the file*/
 char* Client_Get_FileMetaData(int socket, char* buffer, uint32_t* file_size){
     
-    /* buffers to read the filepath_length and file_size */
-    uint16_t* length_buffer = (uint16_t*)calloc(1, sizeof(uint16_t));
+    uint16_t* length_buffer = (uint16_t*)calloc(1, sizeof(uint16_t));   /* buffer to read the filepath_length */
     memset(length_buffer, 0 , sizeof(uint16_t));
 
-    uint32_t* size_buffer = (uint32_t*)calloc(1, sizeof(uint32_t));
+    uint32_t* size_buffer = (uint32_t*)calloc(1, sizeof(uint32_t));     /* buffers to read the file_size */ 
     memset(size_buffer, 0 , sizeof(uint32_t));
 
     /* 1. Receive the length of the path of the file */
     Receive_Data(socket, length_buffer, sizeof(uint16_t), "CLIENT: READ file path length ");
-    uint16_t file_length = ntohs(*length_buffer);     //convert from Network Byte Order to host order 
-    //printf("WITHOUT: file length %d\t WITH: file length %d\n",  *length_buffer, file_length);
+    uint16_t file_length = ntohs(*length_buffer);       //convert from Network Byte Order to host order 
 
     /* 2. Receive the size of the file */
     Receive_Data(socket, size_buffer, sizeof(uint32_t),"CLIENT: READ file size " );
-    *file_size = ntohl(*size_buffer);   //convert from Network Byte Order to host order
-    //printf("WITHOUT: file size %d\t WITH: file size %d\n",  *size_buffer, *file_size);
+    *file_size = ntohl(*size_buffer);                   //convert from Network Byte Order to host order
 
     /* 3. Receive the name of the path of the file along with the name of the file */
     Receive_Data(socket, buffer, file_length,"CLIENT: READ file name " );
 
+    /* 4. copy file path to a new variable */
     char* path = (char*)calloc(file_length+1, sizeof(char));
     memcpy(path, buffer, strlen(buffer));
 
@@ -164,7 +179,7 @@ int Client_Resolve_FilePath(char* path, char* output_dir){
     char* start = path;
     char* end = path;
 
-    /* start building the file system hierarchy of the server at the client */
+    /* 1. start building the file system hierarchy of the server at the client */
     /* The directory sent from the server will be copied inside [output_dir] */
 
     /* [copied_path] --> the substring of the whole path string currently copied into the [output_dir] */
@@ -172,14 +187,14 @@ int Client_Resolve_FilePath(char* path, char* output_dir){
     memcpy(copied_path, output_dir, strlen(output_dir));
     
     
-    struct stat node_info;   /* struct to check if a directory exists, while reading the path string*/
+    struct stat node_info;      /* struct to check if a directory exists, while reading the path string*/
     short int isDirectory = 1;  /* given a path string all names are directories except for the last one; it is a file */
-    int new_file_fd = -1;    /* file desc for the new file which will be created */
+    int new_file_fd = -1;       /* file desc for the new file which will be created */
 
     
     while(strlen(start) != 0){  /* scan the whole path string until we reach the end of it */
 
-        end = strstr(start, "/");  //search for '/' --> seperates the directories and files
+        end = strstr(start, "/");  // 2. search for '/' --> seperates the directories and files
         
         /* '/' not found --> there is no other directory; the last substring is a file */
         if(end == NULL){
@@ -188,12 +203,12 @@ int Client_Resolve_FilePath(char* path, char* output_dir){
         }
         memset(&node_info, 0, sizeof(struct stat));
 
-        /* copy the substring until the '/' to the [copied_path] */
+        /* 3. copy the substring until the '/' to the [copied_path] */
         memcpy(copied_path + strlen(copied_path), start, strlen(start) - strlen(end) +1);
         
         int node_status = stat(copied_path, &node_info);
         
-        /* create directory if it doesn't exist */
+        /* 4. create directory if it doesn't exist */
         if(isDirectory){
             if (node_status < 0){
                 if(mkdir(copied_path, 0744) == -1){
@@ -201,12 +216,12 @@ int Client_Resolve_FilePath(char* path, char* output_dir){
                 }
             }
         }
-        else{          /* CREATE FILE -- DELETE IT IF EXISTS */
+        else{          /* 4. CREATE FILE -- DELETE IT IF EXISTS */
             if ( (new_file_fd = open(copied_path, O_CREAT|O_TRUNC|O_RDWR, 0644)) == -1){
                 Print_Error("CLIENT: Creating new file");
             }
         }       
-        start = end + 1;   //[start] points to character after the '/'
+        start = end + 1;   // 5. [start] points to character after the '/'
     }
     
     free(copied_path);
