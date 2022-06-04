@@ -2,6 +2,7 @@ KARAVANGELI EFTYCHIA - 1115201800062
 
 ***************************************************USEFUL NOTES*****************************************************
 
+
 - In this file only genaral information is presented. It concerns compilation and a high level description of what 
 each file of the project contains.
 - There are highly detailed and descriptive comments in all code files which are very explanatory.
@@ -9,12 +10,13 @@ each file of the project contains.
 However, if it presents any errors/failures and does not exit, then its behavior will be undefined.
 - remoteClients exit themselves after getting the requested directory from the dataServer
 - dataServer terminates after typing ^C (which is being handled), but it can also stop with ^Z, which has the default
-behavior.
+action.
 - multiple_clients.sh (end of this file) is a script I used to test my project. You can see what kinds of experiments
-I made.
+I made (see end of the file).
 
 
 --------------------------------------STRUCTURE OF THE PROJECT & COMPILATION----------------------------------------
+
 
 Implementation language: C
 The project was implemented in vscode in WSL and was tested at linux04, linux05 and linux06 with two versions:
@@ -61,6 +63,7 @@ of some generic and common functions, which both Client and Server use. For more
 
 --------------------------------------------------CommonFuncs.c-----------------------------------------------------
 
+
 These are helpful functions for both dataServer and remoteClient. They are the same with some of the functions from the
 course material or have small changes for the purpose of the project. They concern:
 1. error handling
@@ -68,10 +71,12 @@ course material or have small changes for the purpose of the project. They conce
 3. sending data
 4. receiving data. 
 
-source: https://cgi.di.uoa.gr/~antoulas/k24/ --> sockets-src/src/prs.c and sockets-src/src/prs.c
+source: https://cgi.di.uoa.gr/~antoulas/k24/ --> sockets-src/src/prs.c, sockets-src/src/prsref.c and
+                                                 sockets-src/src/rls.c
 
 
 -------------------------------------------------Queue.c--Queue.h---------------------------------------------------
+
 
 !These files were used at the previous project as well. A few alterations were made due to the project's purposeses!
 They contain a FIFO queue implementation with pointers (like a list). The nodes of the queue are pointers to a struct
@@ -81,156 +86,131 @@ In this project, Queue is used to save information for 2 entities.
 1. Files_Queue         --> uses the int and the char*
 2. Mutex_Socket_Queue  --> uses the int and the mutex
 
+
+1. Files_Queue:
+    The elements of this Queue are pointers to structs, which contain an int and a char*. The int is the socket number
+    for every Client, who is connected to the Server and assures the communication with him. The char* is the name of 
+    the absolute path to a file in the Server's file system, which the Client requested to copy to his own file system.
+    The maximum size of this queue is given as argument in the ./dataServer programm from the command line. This queue
+    is used by both Communication_Threads and Worker_Threads the following way; communication threads insert a file
+    name along with the socket of the client, to whom that file should be sent and the worker threads remove the elements
+    from the queue in order to send them to the right client. This queue is protected with a mutex so that only one
+    thread has access to the queue each moment. They are also 2 conditional variables to which the threads are blocked 
+    if they are no elements in the queue or if the queue is full.
+
+2. Mutex_Socket_Queue:
+    The elements of this Queue are pointers to structs, which contain an int and a pthread_mutex_t. The int is the 
+    socket number for every Client, who is connected to the Server and assures the communication with him. Every socket
+    is associated with a mutex. This queue is used by Worker_Threads the following way; when a Worker_Thread sends a file
+    to a client, locks the mutex associated with the client's socket so that no other worker thread can send a file at
+    the same time with another.
+
 More information for the purpose of those queues below (see Server.c--Server.h)
-
-
-
-
-
-
-
-
-
-
-
-
-**************** will seeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee*********************
-1. H oura einai FIFO kai sygkekrimena gia ka8e worker apo8hkeuetai to pid tou kai to onoma tou named_pipe (FIFO),
-to opoio xrhsimeuei sthn epikoinvnia tou me ton manager. Dhladh otan o manager dialegei enan worker gia na toy 
-ana8esei ena arxeio, aytomata gnvrizei kai to onoma tou FIFO pou syndeei ton manager me ton sygkekrimeno worker.
-Ka8e zeugari manager-worker exei monadiko onoma gia to named_pipe tou. Auta fysika einai diaforetika metaxi tous, 
-giati yparxei periptwsh thn idia stigmh na einai anoixta parapanw apo ena named_pipes. To onoma tou ka8e named_pipe 
-exei to akoloutho pattern "MW_FIFO_[manager_pid]_[worker_pid]", opou manager_pid kai worker_pid einai ta antistoixa 
-pids. 
-H leitourgia einai h exhs: otan kapoios worker einai busy, den vrisketai sthn oura. Eiserxetai sto telos ths ouras,
-otan oloklhrwnei thn ergasia tou, dhladh to process tou arxeiou poy analamvanei. Otan yparxoun diathesimoi workers 
-sthn oura, o manager epilegei ton 1o apo autous kai tou ana8etei na epexergastei to arxeio, to opoio o manager 
-anixneuse apo ton listener. Ara autos o worker e3erxetai apo thn oura.
-
-2. H oura xrhsimopoieitai kai gia allo skopo; gia na apouhkeuei ta links pou anazhtoun oi workers sta diafora
-arxeia. Ousiastika edw paizei to rolo listas kai krataei plhroforia gia to onoma tou ka8e link mazi me poses fores 
-emfanizetai se ena arxeio. Ginetai mia aplh anazhthsh sta hdh yparxonta links. An to link yparxei, apla au3anoume 
-ta occurences, alliws to pros8etoume sthn oura.
 
 
 -------------------------------------------------Server.c--Server.h-------------------------------------------------
 
+
 These files contain the implementation of the dataServer after a client is connected to the server. The functions in 
 these files, are basically the different tasks the server has to do from the moment a client is connected to him. The 
-Server creates the "ThreadPool" (the Worker_Threads), right before he starts receiving connections from Clients. When 
-a new Client is connected to the Server, then a new Communication_Thread is created, which communicates with this
-specific Client through a unique socket number, which was acquired by both Server and Client when the connection was
-established. When either of the sides closes the socket, the connection terminates.  
+Server creates the "ThreadPool" (the Worker_Threads), right before he starts receiving connections from Clients. These 
+are running in a loop and are waiting to detect new content in the "Files_Queue". When a new Client is connected to
+the Server, then a new Communication_Thread is created, which communicates with this specific Client through a unique
+socket number, which was acquired by both Server and Client when the connection was established. When either of the
+sides closes the socket, the connection terminates.  
+
+For the logic of the Communication_Threads - Worker_Threads synchronization, I followed the logic from the:
+-- https://cgi.di.uoa.gr/~antoulas/k24/ --> threads-src/src/p65-prod-cons.c
 
 
 --------------------------------------------------Client.c-Client.h-------------------------------------------------
+
+
+These files contain the implementation of the remoteClient after the client is connected to the dataServer. The 
+functions in these files, are basically the different tasks the client has to do from the moment he is connected to
+the Server. The client creates the right directories after he has received a file from the server and creates a new
+file in order to copy the content he receives from Server. After he gets all files, which were in the requested 
+directory, he terminates.
 
 
 ---------------------------------------------------TCP / IP PROTOCOL------------------------------------------------
-DATASERVER
-1. 
-2.
-3.
-4.
-functions are implemented Periexoun tous Signal handlers gia na diaxeirizetai sygkekrimena signals ston manager kai stous workers. 
-
-1. MANAGER  --> exei signal handlers gia na diaxeirizetai:
-    a. to SIGINT, otan o xrhsths plhktrologhsei ^C gia na termatisei to programma. Allazei to mode tou fd[READ] tou 
-    pipe se O_NONBLOCK opote o manager 3eblokarei apo thn read me ton listener kai sth synexeia allazei to RUNNING 
-    tou manager se false opote stamataei.
-    b. to SIGCHLD me dyo diaforetikous tropous (enan otan oi workers stamatoun h synexizoun th douleia tous kai 
-    enan gia otan termatizoun)
-
-2. WORKERS  --> exoun signal handler gia na diaxeirontai:
-    a. to SIGTSTP pou tous steleni o manager otan einai wra na termatisei to programma, kata to opoio allazei o 
-    RUNNING tous se false.
 
 
---------------------------------------------------Client.c-Client.h-------------------------------------------------
+The TCP / IP protocol the server and the client use during their communication is presented briefly here.
 
-Periexoun synarthseis pou syn8etoun th douleia pou ektelei o manager kath8s epishs kai th douleia tou listener.
-1. O listener pou dhmioutgeitai me fork() apo ton manager ektelei me execlp thn inotifywait me orismata -m (gia na 
-kanei monitor synexeia) kai me events "create" kai "moved_to". To apotelesma exei to parakatw format:
-    directory/filename
+1. REMOTECLIENT : sends the length of the directory name and the name of the directory, which he wants to copy
+1. DATASERVER   : receives the length of the directory name and the name of the directory the client wants to copy
+                  and checks if this is a valid directory in his file system
 
-Epeidh by default to apotelesma apo thn inotifywait emfnizetai sto stdout, kanoume redirection tou stdout sto akro 
-pou pipe pou einai gia write.
-2. O manager perimenei stamathmenos sth read na diabasei kapoio arxeio apo to allo akro tou pipe, auto tou read, me 
-to opoio epikoinwnei me ton listener. An h read diakopei apo syscall, kanoume catch to errno == EINTR kai 
-3anadiavazoume.
-3. Ginetai elegxos gia to an h oura me tous workers einai adeia h oxi. An yparxei diathesimos worker sthn oura 
-ginetai pop (pairnoume to pid kai FIFO name pou antistoixei sto sygkekrimeno zeygari manager-worker) kai o manager 
-tou stelnei SIGCONT na synexisei. An oxi, o manager me fork() dhmiourgei kainourio worker kai to onoma tou 
-antistoixou FIFO gia na epe3ergastei to neo arxeio pou elave o manager apo ton listener.
-4. O manager anoigei to FIFO sto opoio thelei na grapsei to onoma tou arxeiou poy elave apo ton listener, to 
-grafei, kleinei to file descriptor tou FIFO pou anoi3e kai 3anagyrnaei pali sthn arxh perimenontas na diavasei neo 
-arxeio pou tou esteile o listener.
-5. Otan path8ei to ^C gia na termatisei to programma, to parapanw loop (2-4) stamataei na ekteleitai kai o manager 
-termatizei tous workers me ton e3hs tropo. Tous stelnei prwta SIGCONT gia na fygoun apo thn stopped katastash pou 
-vriskontai kai sth syneceia SIGTSTP gia na allaxei to RUNNING se false kai na diakopei to loop tous.
-6. O manager stelnei SIGKILL ston listener gia na ton termatisei.
-7. Yparxei kai h synarthsh gia thn apodesmeush ths mnhmhs gia oles tis diergasies.
- 
+2. DATASERVER   : sends the length of the confirmation message and the confirmation message itself to the client
+2. REMOTECLIENT : receives the length of the confirmation message and the confirmation message itself from the server 
+
+3. REMOTECLIENT : sends confirmation to the server
+3. DATASERVER   : receives confirmation from the client
+
+4. DATASERVER   : sends block size to client
+4. REMOTECLIENT : receives block size from server
+
+5. REMOTECLIENT : sends confirmation to the server
+5. DATASERVER   : receives confirmation from the client
+
+6. while (!all_files_inserted_to_queue || !queue_full)
+        7. DATASERVER   : reads directory content 
+        8. DATASERVER   : inserts < absolute path of a file_name, socket > to the Files_Queue 
+9. DATASERVER   : inserts < termination message, socket > to the Files_Queue 
+
+10.while (!queue_empty)
+        11. DATASERVER  : removes < absolute path of a file_name, socket > from the Files_Queue
+        12. DATASERVER  : sends length of the file name to client
+        13. DATASERVER  : sends file size to client
+        14. DATASERVER  : sends file content block size by block size to client
+10.while (!all_files_have_been_received)
+        12. REMOTECLIENT: receives length of the file name from server
+        13. REMOTECLIENT: receives file size  from server
+        14. REMOTECLIENT: receives file content block size by block size  from server
+
+15. while(!client_finished)
+    REMOTECLIENT: sends confirmation ACK to server
+15. while(!client_finished)
+    DATASERVER  : receives confirmation ACK from client
+
+16. DATASERVER  : send termination message to client
+16. REMOTECLIENT: receives termination message from server
+
+17. REMOTECLIENT: sends END message to server   
+17. DATASERVER  : receives confirmation END from client
+
+18. DATASERVER (the communication thread) TERMINATES
+18. REMOTECLIENT TERMINATES
+
 
 ----------------------------------------------------dataServer.c----------------------------------------------------
 
-Periexoun synarthseis pou syn8etoun th douleia pou ekteloun oi workers. 
 
-1. O ka83 worker molis dhmiourgeitai dhmiourgei to onoma tou FIFO mesw tou opoiou epikoinwnei me ton manager, opws 
-e3hgh8hke sto "Queue.c - Queue.h".
-2. Ginetai to establishment mesw ths sigaction tou signal handler "Finish_Worker" gia to signal SIGTSTP.
-3. Anoigei to file descriptor tou FIFO gia na mporei na diavazei oti grafei o manager sto allo akro tou FIFO.
-4. Perimenei na diavasei (opws kai o manager parapanw) to onoma tou arxeiou pou egrapse o manager sto FIFO.
-5. Diavazei to onoma tpu arxeiou.
-6. Anoigei to arxeio kai 3ekinaei na to diavazei wste na vrei ta links.
-7. Ta links apo8hkeuontai opws eipame parapanw se mia oura mazi me ton ariumo tvn emfanisewn tous mesa se ena 
-sygkekrimeno arxeio.
-8. Dhmiourgei kai anoigei to .out arxeio, wste na grapsei ta apotelesmata pou diavase. (!! an to arxeio yparxei hdh 
-ginetai overwrite !!)
-9. Grafei ta links mazi me ton arithmo twn emfanisewn touw. 
-10. Kleinei ola ta arxeia.
-11. Epanalmvanei ta vhmata (4-10) mexri na lavei mhnyma apo ton manager me SIGTSTP na stamthsei.
-12. Otan stamathsei, kleinei to fd tou FIFO tou, apodesmeuei mnhmh kai termatizei.
+It contains main function for dataServer. It contains argument checking and initialization and the steps until the
+establishment of a connection between a client and the server from server's side (socket, bind, listen, connect).
+
+Code skeleton (with small changes):
+-- https://cgi.di.uoa.gr/~antoulas/k24/ --> sockets-src/src/prsref.c and sockets-src/src/inet_str_server.c
 
 
 ---------------------------------------------------remoteClient.c----------------------------------------------------
 
-Periexei th main function tou programmatos. 
-1. Arxika ginetai kapoios elegxos sxetika me ta orismata sth grammh entolwn.
-2. Meta dhmiourgountai oi directories gia thn apo8hkeush tvn FIFOs kai tvn .out arxeiwn.
-3. Sthn arxh prin thn dhmiourgia tou listener, o manager agnoei ola ta signals, wste o listenr na ta klhronomhsei 
-kai na agnohsei to SIGINT otan 8a to pathsei o xrhsths.
-4. Dhmiourgeitai to pipe gia thn epikoinwnia manager - listener.
-5. Dhmiourgeitai o listener me fork() apo thn main (manager).
-6. Ginetai to establishment mesw ths sigaction tou signal handler "Inform_Manager" gia to signal SIGINT kai tou 
-Signal_from_Child gia to SIGCHLD.
-7. Kaleitai h synarthsh tou manager (vlepe parapanw) mesa sthn opoia yparxei olh h ylopoihsh twn zhtoumenwn ths 
-ergasias.
-8. Otan o xrhsths plhktrologhsei ^C gia na termatisei to programma, tote o signal handler gia to SIGCHLD ginetai o 
-Wait_Child kai o manager sth main eidopoiei ton listener (me SIGKILL) kai tous workers (me SIGTSTP) na termatisoun.
-9. Perimenei na termatisoun oles oi diergasies.
-10. Apodesmeuetai h mnhmh poy egine allocate (gia oles tis diergasies, fysika otan termatizei h ka8emia oxi 
-tautoxrona gia oles mazi).
-11. Kleinoun oi file descriptors gia stdin, stdout, stderr.
-12. Termatizei to programma.
+
+It contains main function for remoteClient. It contains argument checking and initialization and the steps until the
+establishment of a connection between a client and the server from client's side (connect).
+
+Code skeleton (with small changes):
+-- https://cgi.di.uoa.gr/~antoulas/k24/ --> sockets-src/src/prs.c and sockets-src/src/inet_str_client.c
 
 
 --------------------------------------------------multiple_clients.sh-----------------------------------------------
 
-!! IMPORTANT !! Yparxei sto makefile entolh gia na dinontai execute rights gia to bash script. An gia kapoio logo, 
-den doulepsei parakalw na tre3ete thn entolh:
-chmod +x finder.sh
+!! IMPORTANT !! This bash script will not run because I copied directories which were in my own account. It is just
+to show how I ran my project. 
 
-To Bash Script psaxnei kai metraei ta TLDs opws ayta prosdiorizontai sto cammand line sto synolo olwn twn .out 
-arxeiwn pou proekypsan apo thn ektelesh tou "./sniffer" anexarthta apo to poio path do8hke ston sniffer san orisma. 
-Ola ta .out arxeia vriskontai sto OUT_FILES/ directory. Na mhn allax8ei to path pou tha trexei to script. Na trexei 
-apo ekei pou hdh vrisketai. Vevaiw8eite oti ola ta onomata tvn arxeiwn apotelountai apo mia symboloseira kai oxi 
-apo parapanw (e.g. file_1 not file 1), alliws ta arxeia den tha anoigoun kai to finder.sh tha emfanisei error. 
-
-!! IMPORTANT !! Ta TLDs na perastoun san orismata xwris to '.' (e.g. com gr org NOT .com .gr .org)
-Ta apotelesmata tha emfanizontai sto stdout mazi me plhroforia sxetika me to se poia arxeia egine h anazhthsh (ola 
-osa vriskontai mesa ston OUT_FILES directory otan trexei to script).
-Yparxei enas sxetikos elegxos lathwn sto script an den yparxei o katalogos h an ta arxeia den exoun periexomeno. 
-Gia thn prvth anazhthsh xrhsimopoieitai h grep kai kanei match ta strings pou 3ekinoun me '.' kai teleiwnoun me 
-whitespace gia ka8e TLD. Dhladh an anazhtoume to ".com" sthn periptwsh tou ".com.br", to ".com" den 8a prosmetrh8ei 
-sto apotelesma, giati to TLD einai to "br". Perissoteres leptomereies yparxoun sta sxolia sto finder.sh. 
+I made lots of experiments with various values combination in the command line arguments.
+MAXIMUM VALUES I TESTED:
+-- max_block_size 8192
+-- max queue_size 20
+-- max thread_pool size 20

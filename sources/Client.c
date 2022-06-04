@@ -217,7 +217,12 @@ int Client_Resolve_FilePath(char* path, char* output_dir){
             }
         }
         else{          /* 4. CREATE FILE -- DELETE IT IF EXISTS */
-            if ( (new_file_fd = open(copied_path, O_CREAT|O_TRUNC|O_RDWR, 0644)) == -1){
+            if (node_status < 0){
+                if (unlink(copied_path) < 0){
+                    Print_Error("CLIENT: Could not delete already existing file ");
+                }
+            }
+            if ( (new_file_fd = open(copied_path, O_CREAT|O_RDWR, 0644)) == -1){
                 Print_Error("CLIENT: Creating new file");
             }
         }       
