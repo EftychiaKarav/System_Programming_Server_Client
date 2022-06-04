@@ -67,14 +67,16 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
     /* 1. create [output_dir] --> "SERVER_COPY_[Client_pid]"  */
     char* output_dir = (char*)calloc(strlen(OUT_DIR) + 6, sizeof(char)); //5 is for pid and 1 for '\0'
     snprintf(output_dir, strlen(OUT_DIR) + 6, "%s%d%c", OUT_DIR, getpid(), '\0');
-    
+
     /* 2. check if [output_dir] already exists */
     struct stat dir_info;
     memset(&dir_info, 0, sizeof(struct stat));
-    if (stat(output_dir, &dir_info) < 0){    
-        if(mkdir(output_dir, 0744) == -1){
-            Print_Error("CLIENT: Could not create output directory");
-        }
+    if (stat(output_dir, &dir_info) < 0){ 
+        if (errno == ENOENT)   /* if directory does not exist */
+            if(mkdir(output_dir, 0744) == -1){
+                if (errno != EEXIST)
+                    Print_Error("CLIENT: Could not create output directory");
+            }
     }
 
     char* content_buffer = (char*)calloc(block_size+1, sizeof(char));      //buffer for reading file content
@@ -211,13 +213,15 @@ int Client_Resolve_FilePath(char* path, char* output_dir){
         /* 4. create directory if it doesn't exist */
         if(isDirectory){
             if (node_status < 0){
-                if(mkdir(copied_path, 0744) == -1){
-                    Print_Error("CLIENT: Could not create new directory");
-                }
+                if(errno == ENOENT)   /* if dir does not exist */
+                    if(mkdir(copied_path, 0744) == -1){
+                        if (errno != EEXIST)
+                            Print_Error("CLIENT: Could not create new directory");
+                    }
             }
         }
         else{          /* 4. CREATE FILE -- DELETE IT IF EXISTS */
-            if (node_status < 0){
+            if (node_status == 0){
                 if (unlink(copied_path) < 0){
                     Print_Error("CLIENT: Could not delete already existing file ");
                 }

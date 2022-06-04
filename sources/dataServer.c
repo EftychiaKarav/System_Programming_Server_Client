@@ -82,7 +82,7 @@ int main(int argc, char* argv[]){
     /* Use setsockopt in order to use the socket as fast as possible when server closes and runs again */
     if (setsockopt(socket_number, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(int)) < 0)
         Print_Error("Error in sockopt");
-    printf("SERVER's IP is: %d, or %s\n", server.sin_addr.s_addr, inet_ntoa(server.sin_addr));
+    printf("SERVER's IP is: %s\n", inet_ntoa(server.sin_addr));
     
     /* Bind socket to address */
     if (bind(socket_number, serverptr, sizeof(server)) < 0){
@@ -122,7 +122,7 @@ int main(int argc, char* argv[]){
         }
     	/* Find client's address */
 
-    	if ((client_entity = gethostbyaddr((char *) &client.sin_addr, sizeof(client.sin_addr), client.sin_family)) == NULL){
+    	if ((client_entity = gethostbyaddr((const char *) &client.sin_addr, sizeof(client.sin_addr), client.sin_family)) == NULL){
             herror("Server could not resolve client's IP address");
             exit(EXIT_FAILURE);
         }

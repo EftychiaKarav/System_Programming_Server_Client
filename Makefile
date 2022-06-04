@@ -34,11 +34,11 @@ objects_dir:
 multiple_clients:
 	chmod +x multiple_clients.sh
 
-#make the sniffer programm using all the object files in the objects/ directory
+#make the dataServer programm using all the object files expect for remoteClient.o in the objects/ directory
 $(SERVER): $(OBJECT_FILES)
 	$(CC) $(CFLAGS) -o $(SERVER) $(filter-out $(CLIENT_OBJECT), $(OBJECT_FILES))
 
-
+#make the dataServer programm using all the object files expect for dataServer.o in the objects/ directory
 $(CLIENT): $(OBJECT_FILES)
 	$(CC) $(CFLAGS) -o $(CLIENT) $(filter-out $(SERVER_OBJECT), $(OBJECT_FILES))
 
@@ -50,21 +50,20 @@ $(OBJECTS)/%.o: $(SOURCES)/%.c
 #################################################################################
 
 run: all $(SERVER)
-	./$(SERVER) 
+	./$(SERVER) -p 9000 -q 6 -s 7 -b 8192
 
 #################################################################################
 
 clean:
-	rm -rf $(OBJECTS) *COPY* result.txt
+	rm -rf $(OBJECTS) ../SERVER_COPY_*
 	rm -f $(SERVER) $(CLIENT) text*
 
 #################################################################################
 
-valgrind1: clean all $(SERVER)
-	valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes --trace-children=yes ./$(SERVER)
+valgrind: clean all $(SERVER)
+	valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes ./$(SERVER)
 
 
 # ./remoteClient -i 127.0.0.1 -p 8000 -d ../SEMESTER_6/SYSPRO/System_Programming_Exec1_Sniffer
 # ./dataServer -p 9000 -q 8 -s 6 -b 1024
 # /mnt/d/SEMESTER_6/SYSPRO/System_Programming_Exec2_Server_Client
-# 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

@@ -5,7 +5,7 @@
 /* prints error and exits */
 void Print_Error(char* message){
 
-    printf("%s\n", message);
+    perror(message);
     exit(EXIT_FAILURE);
 
 }
