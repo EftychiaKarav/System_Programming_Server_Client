@@ -121,7 +121,6 @@ int main(int argc, char* argv[]){
             Print_Error("Server could not accept connection");
         }
     	/* Find client's address */
-        printf("%p\n", (void*)clientptr);
     	if ((client_entity = gethostbyaddr(&client.sin_addr, sizeof(client.sin_addr), client.sin_family)) == NULL){
             herror("Server could not resolve client's IP address");
             exit(EXIT_FAILURE);
