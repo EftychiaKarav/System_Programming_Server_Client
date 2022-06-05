@@ -60,7 +60,7 @@ int main(int argc, char* argv[]){
 
 
     struct sockaddr_in server, client;
-    socklen_t clientlen = 1;   /* just a value to initialize it --> is changed after a client connects to the server */
+    socklen_t clientlen = sizeof(client);   /* just a value to initialize it --> is changed after a client connects to the server */
     struct sockaddr *serverptr = (struct sockaddr *)&server;   /* socket address for server */
     struct sockaddr *clientptr = (struct sockaddr *)&client;   /* socket address for client */
     struct hostent* client_entity = NULL;
@@ -121,8 +121,8 @@ int main(int argc, char* argv[]){
             Print_Error("Server could not accept connection");
         }
     	/* Find client's address */
-
-    	if ((client_entity = gethostbyaddr((const char *) &client.sin_addr, sizeof(client.sin_addr), client.sin_family)) == NULL){
+        printf("%p\n", (void*)clientptr);
+    	if ((client_entity = gethostbyaddr(&client.sin_addr, sizeof(client.sin_addr), client.sin_family)) == NULL){
             herror("Server could not resolve client's IP address");
             exit(EXIT_FAILURE);
         }

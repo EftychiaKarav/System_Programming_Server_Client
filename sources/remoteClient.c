@@ -55,7 +55,7 @@ int main(int argc, char* argv[]){
 
     /* connect to server */
     server.sin_family = AF_INET;       /* Internet domain */
-    //memcpy(&server.sin_addr, server_entity->h_addr, server_entity->h_length);
+    memcpy((char*)&server.sin_addr, server_entity->h_addr, server_entity->h_length);
     server.sin_port = port;            /* Server port */
     
     /* Initiate connection */

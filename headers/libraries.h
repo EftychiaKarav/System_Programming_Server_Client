@@ -21,9 +21,9 @@
 #include <pthread.h>
 
 #define MAX_LENGTH 4096
-#define DEFAULT_DIR "/home/users/sdi1800062/Documents/" /* all path directories requested by client are relative to this path */
-//#define DEFAULT_DIR "/mnt/d/DOCUMENTS/"
-//#define DEFAULT_DIR "/mnt/d/Docs/"
+#define DEFAULT_DIR "/home/users/"                     /* all path directories requested by client are relative to this path */
+//#define DEFAULT_DIR "/mnt/d/DOCUMENTS/"              /* for my laptop */ 
+//#define DEFAULT_DIR "/mnt/d/Docs/"                   /* for my laptop */
 #define ACK_MSG "ACK"                                  /* client sends it to server to notify him that he has received data */
 #define CONFIRMATION_MSG "About to scan directory: "   /* server sends to client if he has received correct dir name */
 #define WRONG_MSG "WRONG DIRECTORY NAME"               /* server sends to client if he has received wrong dir name */
