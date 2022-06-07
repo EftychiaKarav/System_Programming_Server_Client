@@ -168,6 +168,8 @@ The TCP / IP protocol the server and the client use during their communication i
         8. DATASERVER   : inserts < absolute path of a file_name, socket > to the Files_Queue 
 9. DATASERVER   : inserts < termination message, socket > to the Files_Queue 
 
+(REMOTECLIENT does not have steps 6-9)
+
 10.while (!queue_empty)
         11. DATASERVER  : removes < absolute path of a file_name, socket > from the Files_Queue
         12. DATASERVER  : sends length of the file name to client
