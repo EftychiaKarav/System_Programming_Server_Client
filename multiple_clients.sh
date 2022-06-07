@@ -2,8 +2,8 @@
 
 #for my pc
 port=9000
-IP=127.0.0.1
-#IP=195.134.65.76
+#IP=127.0.0.1
+IP=195.134.65.75
 VALGRIND="valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes "
 
 #for my laptop with same directories  -- very small files
@@ -59,19 +59,19 @@ VALGRIND="valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes "
 # $VALGRIND ./remoteClient -i $IP -p $port -d ../SEMESTER_6/SYSPRO/make_example > text10 &
 
 #for university linux
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/Syspro > text1 &
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/B_SEMESTER > text2 &
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/E_SEMESTER > text3 &
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/C_SEMESTER > text4 &
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/Project > text5 &
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Downloads > text6 &
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/B_SEMESTER > text7 &
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/B_SEMESTER/ERGASIA1 > text8 &
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Downloads/bla1 > text9 &
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Downloads/bla2 > text10 &
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Downloads/bla3 > text11 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/Syspro > text1 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/B_SEMESTER > text2 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/E_SEMESTER > text3 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/C_SEMESTER > text4 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/Project > text5 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Downloads > text6 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/B_SEMESTER > text7 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/B_SEMESTER/ERGASIA1 > text8 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Downloads/bla1 > text9 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Downloads/bla2 > text10 &
+./remoteClient -i $IP -p $port -d ./sdi1800062/Downloads/bla3 > text11 &
 
-# ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/Syspro > text1 &
+# $VALGRIND ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/Syspro > text1 &
 # $VALGRIND ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/ > text2 &
 # $VALGRIND ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/E_SEMESTER > text3 &
 # $VALGRIND ./remoteClient -i $IP -p $port -d ./sdi1800062/Documents/C_SEMESTER > text4 &

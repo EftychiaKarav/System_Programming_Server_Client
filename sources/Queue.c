@@ -154,7 +154,7 @@ void Queue_Destroy(Queue queue){
 
 }
 
-QNode Queue_Pop(Queue queue){
+QNode Queue_Pop(Queue queue){   /* isconnects 1st element from queue -- does not release memory */
 
     if(Queue_isEmpty(queue)){
         return NULL;
@@ -181,27 +181,27 @@ QNode Queue_Find(Queue queue, unsigned int socket_fd){
     return q_node;
 }
 
-void Queue_Delete(Queue queue, QNode q_node){
+void Queue_Delete(Queue queue, QNode q_node){    /* deletes a node from queue -- disconnects it */
 
-    if(q_node == queue->first){
+    if(q_node == queue->first){    /* first node */
         q_node = Queue_Pop(queue);
         QueueNode_Delete(q_node);
     }
-    else{            /* find node and disconnect it from queue */
+    else{            /* some other node --> find node and disconnect it from queue */
         QNode prev_node = queue->first;
         QNode node_to_delete = queue->first->next;
         while(node_to_delete != q_node){
             prev_node = node_to_delete;
             node_to_delete = node_to_delete->next;
         }
-        if(node_to_delete == queue->last){
+        if(node_to_delete == queue->last){   /* last node to be deleted */
             queue->last = prev_node;
             queue->last->next = NULL;
         }
         else{
             prev_node->next = node_to_delete->next;
         }
-        QueueNode_Delete(q_node);
+        QueueNode_Delete(q_node);   /* free memory */
         queue->size--;
     }
 

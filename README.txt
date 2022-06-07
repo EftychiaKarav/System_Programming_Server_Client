@@ -13,6 +13,7 @@ However, if it presents any errors/failures and does not exit, then its behavior
 - remoteClients exit themselves after getting the requested directory from the dataServer
 - dataServer terminates after typing ^C (which is being handled), but it can also stop with ^Z, which has the default
 action.
+- BEFORE TERMINATING the dataServer with ^C, make sure that ALL clients have received the directories they requested.
 - multiple_clients.sh is a script I used to test my project. You can see what kinds of experiments
 I conducted (see end of this file).
 
@@ -51,6 +52,9 @@ both programms does not matter.
     a. If server and clients run in the same linux host, -i 127.0.0.1 as argument for the server's IP is ok.
     b. If they are in different linus hosts, then type at server's side "hostname -I" to find the IP of the server and
        provide it as argument at the clients.
+    ./dataServer -p <port> -s <thread_pool_size> -q <queue_size> -b <block_size>
+    ./remoteClient -i <server_ip> -p <server_port> -d <directory>
+    (the sequence of the commnad line arguments can change)
 
 --COPIED FILES AT THE CLIENTS:
 The whole directory every remoteClient requests from the dataServer is being saved in a newly created directory which has

@@ -127,8 +127,8 @@ int main(int argc, char* argv[]){
             herror("Server could not resolve client's IP address");
             exit(EXIT_FAILURE);
         }
-        printf("Accepted connection from %s who is listening on port %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-        printf("Accepted connection from %s\n\n", client_entity->h_name);
+        printf("Accepted connection from %s (%s) who is listening on port %d\n\n",
+               inet_ntoa(client.sin_addr), client_entity->h_name, ntohs(client.sin_port));
 
         /* queue to keep a socket and a mutex */
         if(!Queue_Exists(Mutex_Socket_Queue)){
