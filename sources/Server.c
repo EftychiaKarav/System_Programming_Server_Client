@@ -29,7 +29,7 @@ void* Server(void* arguments){
     
     /* create and add the pair <socket, mutex> to the Mutex_Socket_Queue */
     pthread_mutex_lock(&mutex_socket_queue);
-    QNode q_node = QueueNode_Create_Node(socket, NULL);
+    QNode q_node = QueueNode_Create(socket, NULL);
     Queue_Insert(Mutex_Socket_Queue, q_node);
     pthread_mutex_unlock(&mutex_socket_queue);
 
@@ -246,19 +246,20 @@ void Server_Extract_Files_From_Directory(int socket, char* path, int max_queue_s
    queue, by locking and unlocking the respective mutex -- waits while the queue is full */
 void Server_Insert_Files_To_Queue(int socket, char* path, int max_queue_size){
     
+    
+    pthread_mutex_lock(&mutex_files_queue);                            // lock mutex
     QNode node = NULL;
     if (path == NULL){       /* termination message */
-        node = QueueNode_Create_Node(socket, TERMINATION_MSG);
+        node = QueueNode_Create(socket, TERMINATION_MSG);
     }
     else{    /* file name with path */
-        node = QueueNode_Create_Node(socket, path);
+        node = QueueNode_Create(socket, path);
     }
-    pthread_mutex_lock(&mutex_files_queue);                            // lock mutex
     while(Queue_Size(Files_Queue) >= max_queue_size){                  // wait if queue while queue is full 
         pthread_cond_wait(&cond_queue_not_full, &mutex_files_queue);
     }
     if (path != NULL){
-        printf("[Communication Thread: %ld] ---> ADDING FILE < %s > to the queue...\n", pthread_self(), path);
+        printf("[Communication Thread: %ld] ---> ADDING FILE < %s, %d > to the queue...\n", pthread_self(), path, socket);
     }
     Queue_Insert(Files_Queue, node);                                   // insert file - socket node to the queue
     pthread_mutex_unlock(&mutex_files_queue);                          // unlock mutex

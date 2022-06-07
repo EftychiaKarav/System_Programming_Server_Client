@@ -8,18 +8,21 @@ each file of the project contains.
 - There are highly detailed and descriptive comments in all code files which are very explanatory.
 - If -during execution- the program presents any errors/failures it will exit. An error message will be dispalyed.
 However, if it presents any errors/failures and does not exit, then its behavior will be undefined.
+- If at any time a wrong directory is given as an argument and the server cannot resolve the path then the programm should be 
+  rerun.
 - remoteClients exit themselves after getting the requested directory from the dataServer
 - dataServer terminates after typing ^C (which is being handled), but it can also stop with ^Z, which has the default
 action.
-- multiple_clients.sh (end of this file) is a script I used to test my project. You can see what kinds of experiments
-I made (see end of the file).
+- multiple_clients.sh is a script I used to test my project. You can see what kinds of experiments
+I conducted (see end of this file).
 
 
 --------------------------------------STRUCTURE OF THE PROJECT & COMPILATION----------------------------------------
 
 
 Implementation language: C
-The project was implemented in vscode in WSL and was tested at linux04, linux05 and linux06 with two versions:
+The project was implemented in vscode in WSL and was tested many times at linux04, linux05, linux06, linux07 and linux08
+with two versions:
 1. Both dataServer and remoteClient were running in the same host
 2. dataServer was running in e.g. linux04 and remoteClient in other hosts e.g. linux05, linux06
 
@@ -28,7 +31,7 @@ Valgrind tool identified 0 leaks in all categories and 0 errors for both dataSer
 
 !!! IMPORTANT !!!
 - The DEFAULT DIRECTORY at the dataServer side is "/home/users". All directories given as arguments at the command line
-from the remoteClient side should be relative paths to "/home/users" directory.
+from the remoteClient side SHOULD BE RELATIVE PATHS to "/home/users" directory.
 
 After unzipping we are in the directory EftychiaKaravangeliProject2/ and there is inside:
 - Makefile
@@ -44,14 +47,20 @@ and it is inside EftychiaKaravangeliProject2/ directory. Both executable program
 directory and the programms should be executed from this directory. The sequence of the arguments in the command line for
 both programms does not matter.
 
+-- RUN:
+    a. If server and clients run in the same linux host, -i 127.0.0.1 as argument for the server's IP is ok.
+    b. If they are in different linus hosts, then type at server's side "hostname -I" to find the IP of the server and
+       provide it as argument at the clients.
+
 --COPIED FILES AT THE CLIENTS:
 The whole directory every remoteClient requests from the dataServer is being saved in a newly created directory which has
 the following name format: SERVER_COPY_[pid_client], where [pid_client] is the process id of the remoteClient when it was
 running. Every remoteClient has his own directory of course. These directories are created inside EftychiaKaravangeliProject2
-directory and ARE DELETED EVERY TIME "MAKE" is typed (because it also runs "make clean"). They contain the whole filesystem
-hierarchy of the Server (/home/users/.../)
+directory and ARE DELETED EVERY TIME "MAKE" is typed (because slso "make clean" is being run). They contain the whole
+filesystem hierarchy of the Server beginning from the directory the client requested.
 
-!! IMPORTANT !! With every "make" the objects/ directory is being deleted and created again. 
+!! IMPORTANT !! With every "make" the objects/ directory and the copied directories to the clients (SERVER_COPY_[pid_client])
+are being deleted and created again. 
 
 
 ---------------------------------------------------libraries.h------------------------------------------------------
@@ -206,11 +215,11 @@ Code skeleton (with small changes):
 
 --------------------------------------------------multiple_clients.sh-----------------------------------------------
 
-!! IMPORTANT !! This bash script will not run because I copied directories which were in my own account. It is just
-to show how I ran my project. 
+!! IMPORTANT !! DO NOT RUN THIS BASH SCRIPT, because I copied directories which were in my own account. It is just
+to show how I ran and tested my project. 
 
-I made lots of experiments with various values combination in the command line arguments.
+I conducted lots of experiments with various combinations for the command line arguments.
 MAXIMUM VALUES I TESTED:
 -- max_block_size 8192
--- max queue_size 20
--- max thread_pool size 20
+-- max queue_size 16
+-- max thread_pool size 16

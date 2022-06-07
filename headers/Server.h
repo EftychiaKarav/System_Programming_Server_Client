@@ -10,7 +10,7 @@
 
 extern pthread_mutex_t mutex_files_queue;   /* mutex for Files_Queue */
 extern pthread_mutex_t mutex_socket_queue;  /* mutex for Mutex_Socket_Queue */
-extern pthread_mutex_t mutex_dir;           /* mutex for readdir --. it is thread-unsafe */
+extern pthread_mutex_t mutex_dir;           /* mutex for readdir --> it is thread-unsafe */
 extern pthread_cond_t cond_queue_not_empty; /* signal worker threads when queue is not empty, make worker threads wait until queue is not empty */
 extern pthread_cond_t cond_queue_not_full;  /* signal commun threads when queue is not full, make commuc threads wait until queue is not full */
 extern Queue Files_Queue;                   /* keeps a file name and the socket of the client, who must receive the file */

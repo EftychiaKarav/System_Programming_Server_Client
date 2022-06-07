@@ -6,6 +6,7 @@ HEADERS = headers
 OBJECTS = objects
 SERVER = dataServer
 CLIENT = remoteClient
+TEST = QueueTest
 CC = gcc
 CFLAGS = -g -Wall -pedantic -pthread -I$(HEADERS)
 
@@ -17,6 +18,7 @@ OBJECT_FILES = $(SOURCE_FILES:$(SOURCES)/%.c=$(OBJECTS)/%.o)
 
 SERVER_OBJECT = $(OBJECTS)/$(SERVER).o
 CLIENT_OBJECT = $(OBJECTS)/$(CLIENT).o
+TEST_OBJECT = $(OBJECTS)/$(TEST).o
 
 ############################################################################
 
@@ -24,7 +26,7 @@ CLIENT_OBJECT = $(OBJECTS)/$(CLIENT).o
 
 ############################################################################
 
-all: clean objects_dir $(SERVER) $(CLIENT) multiple_clients
+all: clean objects_dir $(SERVER) $(CLIENT) $(TEST) multiple_clients
 
 #make the objects/ directory
 objects_dir:
@@ -36,12 +38,14 @@ multiple_clients:
 
 #make the dataServer programm using all the object files expect for remoteClient.o in the objects/ directory
 $(SERVER): $(OBJECT_FILES)
-	$(CC) $(CFLAGS) -o $(SERVER) $(filter-out $(CLIENT_OBJECT), $(OBJECT_FILES))
+	$(CC) $(CFLAGS) -o $(SERVER) $(filter-out $(CLIENT_OBJECT) $(TEST_OBJECT), $(OBJECT_FILES))
 
 #make the dataServer programm using all the object files expect for dataServer.o in the objects/ directory
 $(CLIENT): $(OBJECT_FILES)
-	$(CC) $(CFLAGS) -o $(CLIENT) $(filter-out $(SERVER_OBJECT), $(OBJECT_FILES))
+	$(CC) $(CFLAGS) -o $(CLIENT) $(filter-out $(SERVER_OBJECT) $(TEST_OBJECT), $(OBJECT_FILES))
 
+$(TEST): $(OBJECT_FILES)
+	$(CC) $(CFLAGS) -o $(TEST) $(filter-out $(SERVER_OBJECT) $(CLIENT_OBJECT), $(OBJECT_FILES))
 
 #make the .o files
 $(OBJECTS)/%.o: $(SOURCES)/%.c

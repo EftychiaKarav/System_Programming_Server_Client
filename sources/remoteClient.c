@@ -64,7 +64,7 @@ int main(int argc, char* argv[]){
     if (connect(socket_number, serverptr, sizeof(server)) < 0)
 	   Print_Error("Client could not connect to Server");
     
-    printf("Client's parameters are:\nServer IP: %s\nPort: %d\nDirectory: %s\n", IP, port, directory);
+    printf("\nClient's parameters are:\nServer IP: %s\nPort: %d\nDirectory: %s\n", IP, port, directory);
 	printf("IP-address:%s --> Resolved to: %s\n", IP,server_entity->h_name);
     printf("Connecting to %s on port %d\n\n\n", IP, port);
 

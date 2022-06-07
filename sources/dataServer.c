@@ -95,7 +95,7 @@ int main(int argc, char* argv[]){
     if (listen(socket_number, 1000) < 0)
         Print_Error("Server: listen failed");
     
-    printf("Listening for connections to port %d\n", port);
+    printf("Listening for connections to port %d\n\n", port);
 
     /* initialize queue for saving file names with the respective socket to which the file should be sent */
     if(!Queue_Exists(Files_Queue)){
@@ -128,7 +128,7 @@ int main(int argc, char* argv[]){
             exit(EXIT_FAILURE);
         }
         printf("Accepted connection from %s who is listening on port %d\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-        printf("Accepted connection from %s\n", client_entity->h_name);
+        printf("Accepted connection from %s\n\n", client_entity->h_name);
 
         /* queue to keep a socket and a mutex */
         if(!Queue_Exists(Mutex_Socket_Queue)){

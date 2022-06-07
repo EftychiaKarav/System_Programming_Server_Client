@@ -15,7 +15,7 @@ void Client(int, char*);
 
 /* Client recreates the same file system hierarchy as the server does into a new directory with name:
    "SERVER_COPY_[pid_Client]", so that every client can have what they asked in a seperate directory  */
-int Client_Resolve_FilePath(char*, char*);
+int Client_Resolve_FilePath(char*, char*, char*);
 
 
 /* Read 1. the length of the path of the file
@@ -26,7 +26,7 @@ char* Client_Get_FileMetaData(int, char*, uint32_t*);
 
 /* Client 1. creates the [output_dir] which will contain the file system of the Server, which Client asked
           2. receives the files and copies them in the directory, after he creates the right hierarchy */
-void Client_CopyFiles(int, char*, size_t);
+void Client_CopyFiles(int, char*, char*, size_t);
 
 
 #endif

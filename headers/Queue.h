@@ -14,7 +14,7 @@ typedef union Data_Node*         Data;
 /**************************************************************************************************/
 
 //  methods for Datatype Queue_Node -> QNode is a pointer to Queue_Node
-QNode QueueNode_Create_Node(unsigned int, void*);
+QNode QueueNode_Create(unsigned int, void*);
 QNode QueueNode_Next(QNode);
 void QueueNode_Delete(QNode);
 

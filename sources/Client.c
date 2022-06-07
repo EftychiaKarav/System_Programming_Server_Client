@@ -10,6 +10,11 @@ void Client(int socket, char* directory){
     char buffer[MAX_LENGTH+1] = {0};
     uint32_t* numbers_buffer = (uint32_t*)calloc(1, sizeof(uint32_t)); 
     
+    /* if the last char in the path is '/' erase it */
+    if(directory[(strlen(directory) - 1)] == '/'){
+        memset(&directory[strlen(directory) - 1], '\0', 1);
+    }
+
     /* 1. Send to the server the length of the directory name to acquire */
     uint16_t dir_length = htons(strlen(directory));          /* convert from host order to Network Byte Order */
     Send_Data(socket, &dir_length, sizeof(uint16_t), "CLIENT: Write directory length");
@@ -35,20 +40,20 @@ void Client(int socket, char* directory){
     else if(!strncmp(buffer, confirm_mess, strlen(confirm_mess))){   /* server has sent "About to scan [dir name] " */
         
         /* 6. Send confirmation to the server */
-        Send_Data(socket, ACK_MSG, strlen(ACK_MSG), "CLIENT: Write ACK message");
+        Send_Data(socket, ACK_MSG, strlen(ACK_MSG), "CLIENT: Write ACK message -- directory");
         
         /* 7. Receive block size from server */
         Receive_Data(socket, numbers_buffer, sizeof(uint32_t), "CLIENT: READ block size ");
         block_size = ntohl(*numbers_buffer);          //convert from Network Byte Order to host order 
 
         /* 8. Send confirmation to the server */
-        Send_Data(socket, ACK_MSG, strlen(ACK_MSG), "CLIENT: Write ACK message");
+        Send_Data(socket, ACK_MSG, strlen(ACK_MSG), "CLIENT: Write ACK message -- blocksize");
 
     }
     free(confirm_mess);
 
     /* 9. client copies file in his file system */
-    Client_CopyFiles(socket, buffer, block_size);
+    Client_CopyFiles(socket, buffer, directory, block_size);
 
     /* 10. Send confirmation to the server */
     Send_Data(socket, TERM_MSG, strlen(TERM_MSG), "CLIENT: Write TERM message");
@@ -64,7 +69,7 @@ void Client(int socket, char* directory){
 
 /* Client 1. creates the [output_dir] which will contain the file system of the Server, which Client asked
           2. receives the files and copies them in the directory, after he creates the right hierarchy */        
-void Client_CopyFiles(int socket, char* buffer, size_t block_size){
+void Client_CopyFiles(int socket, char* buffer, char* directory, size_t block_size){
 
     /* 1. create [output_dir] --> "SERVER_COPY_[Client_pid]"  */
     char* output_dir = (char*)calloc(strlen(OUT_DIR) + 6, sizeof(char)); //5 is for pid and 1 for '\0'
@@ -94,7 +99,7 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
         if(strncmp(path, TERMINATION_MSG, strlen(TERMINATION_MSG)) != 0){
             
             /* 4. Create server's file system hierarchy and create and open the new file to write to */
-            file_fd = Client_Resolve_FilePath(path, output_dir);
+            file_fd = Client_Resolve_FilePath(path, directory, output_dir);
             
             int bytes_to_recv = file_size;
             int bytes_read = 0;
@@ -121,7 +126,7 @@ void Client_CopyFiles(int socket, char* buffer, size_t block_size){
         }
         printf("Received: %s\n\n", path);
         /* 7. Send confirmation to the server */
-        Send_Data(socket, ACK_MSG, strlen(ACK_MSG), "CLIENT: Write ACK message");
+        Send_Data(socket, ACK_MSG, strlen(ACK_MSG), "CLIENT: Write ACK message -- received");
         free(path);
 
     }while(strncmp(buffer, TERMINATION_MSG, strlen(TERMINATION_MSG)) != 0);
@@ -177,17 +182,27 @@ char* Client_Get_FileMetaData(int socket, char* buffer, uint32_t* file_size){
    1. Given a path to a specific file, create the hierarchy of all the directories until we reach the file.
    2. Create the new file (it is deleted if it already exists)*/
 
-int Client_Resolve_FilePath(char* path, char* output_dir){
+int Client_Resolve_FilePath(char* server_path, char* client_path, char* output_dir){
 
-    /* both start, end point at the begining of the path string */
-    char* start = path;
-    char* end = path;
+    /* server_path  --> absolute path to a file in the server 
+       client_path  --> path to the directory to copy; path is relative to the DEFAULT_DIR in the Server
+       actual_directory_to_copy --> just the name of the directory the client requested without providing path
+       actual_path --> name of the directory/file to copy to client */
+    
+    char* temp_path = strstr(server_path, client_path);
+    char* actual_directory_to_copy = strrchr(client_path, '/');
+    int chars_to_omit = strlen(client_path) - strlen(actual_directory_to_copy);
+    char* actual_path = temp_path + chars_to_omit;
+
+    /* both start, end point at the begining of the [actual_path] string */
+    char* start = actual_path;
+    char* end = actual_path;
 
     /* 1. start building the file system hierarchy of the server at the client */
     /* The directory sent from the server will be copied inside [output_dir] */
 
     /* [copied_path] --> the substring of the whole path string currently copied into the [output_dir] */
-    char* copied_path = (char*)calloc(strlen(path)+strlen(output_dir)+ 1, sizeof(char));
+    char* copied_path = (char*)calloc(strlen(actual_path)+strlen(output_dir)+ 1, sizeof(char));
     memcpy(copied_path, output_dir, strlen(output_dir));
     
     
@@ -234,7 +249,9 @@ int Client_Resolve_FilePath(char* path, char* output_dir){
         }       
         start = end + 1;   // 5. [start] points to character after the '/'
     }
-    
+    Clear_Buffer(server_path, strlen(server_path));
+    memcpy(server_path, copied_path, strlen(copied_path));
+
     free(copied_path);
     return new_file_fd;    /* file descriptor of the new file */
 

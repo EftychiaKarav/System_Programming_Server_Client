@@ -23,7 +23,7 @@ Queue Mutex_Socket_Queue = NULL;
 
 /* methods for Datatype Queue_Node -> QNode is a pointer to Queue_Node */
 
-QNode QueueNode_Create_Node(unsigned int socket, void* data){
+QNode QueueNode_Create(unsigned int socket, void* data){
     
     QNode queue_node = (QNode)calloc(1, sizeof(struct Queue_Node));
     Data data_node = (Data)calloc(1, sizeof(union Data_Node));
@@ -32,6 +32,7 @@ QNode QueueNode_Create_Node(unsigned int socket, void* data){
     }
     queue_node->socket = socket;
     queue_node->data = data_node;
+    queue_node->next = NULL;
     if(data != NULL){     /* it is a node for the Files_Queue */
         char* filename_path = (char*)data;
         queue_node->data->fileName = (char*)calloc(strlen(filename_path)+1, sizeof(char));
@@ -161,6 +162,9 @@ QNode Queue_Pop(Queue queue){
     QNode node_to_be_popped = queue->first;
     queue->first = queue->first->next;
     queue->size--;
+    if(queue->size <= 1){
+        queue->last = queue->first;
+    }
     return node_to_be_popped;
     
 }
@@ -190,7 +194,13 @@ void Queue_Delete(Queue queue, QNode q_node){
             prev_node = node_to_delete;
             node_to_delete = node_to_delete->next;
         }
-        prev_node->next = node_to_delete->next;
+        if(node_to_delete == queue->last){
+            queue->last = prev_node;
+            queue->last->next = NULL;
+        }
+        else{
+            prev_node->next = node_to_delete->next;
+        }
         QueueNode_Delete(q_node);
         queue->size--;
     }
@@ -202,7 +212,7 @@ void Queue_Print(const Queue queue){
     QNode q_node = queue->first;
     int i = 1;
     while(q_node != NULL){
-        printf("i = %d\t, socket_fd = %d\t, file = %s\n", i, q_node->socket, q_node->data->fileName);
+        printf("i = %d\t, socket_fd = %d\n", i, q_node->socket);
         q_node = q_node->next;
         i++;
     }
