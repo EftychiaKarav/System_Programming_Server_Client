@@ -1,4 +1,3 @@
-#AM: 1115201800062
 #Makefile
 
 SOURCES = sources
@@ -64,6 +63,5 @@ valgrind: clean all $(SERVER)
 	valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes ./$(SERVER)
 
 
-# ./remoteClient -i 127.0.0.1 -p 8000 -d ../SEMESTER_6/SYSPRO/System_Programming_Exec1_Sniffer
-# ./dataServer -p 9000 -q 8 -s 6 -b 1024
-# /mnt/d/SEMESTER_6/SYSPRO/System_Programming_Exec2_Server_Client
+# ./remoteClient -i <server_ip> -p <server_port> -d <directory>
+# ./dataServer -p <port> -s <thread_pool_size> -q <queue_size> -b <block_size>

@@ -1,5 +1,3 @@
-//KARAVANGELI EFTYCHIA - 1115201800062
-
 #include "../headers/Server.h"
 
 int main(int argc, char* argv[]){

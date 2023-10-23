@@ -1,5 +1,3 @@
-//KARAVANGELI EFTYCHIA - 1115201800062
-
 #ifndef CLIENT_H_
 #define CLIENT_H_
 #include "libraries.h"

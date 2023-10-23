@@ -1,5 +1,3 @@
-//KARAVANGELI EFTYCHIA - 1115201800062
-
 #ifndef QUEUE_H_
 #define QUEUE_H_
 
