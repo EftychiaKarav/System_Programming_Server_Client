@@ -30,8 +30,8 @@ objects_dir:
 	mkdir -p objects
 
 
-# multiple_clients:
-# 	chmod +x multiple_clients.sh
+multiple_clients:
+	chmod +x multiple_clients_test.sh
 
 #make the dataServer programm using all the object files expect for remoteClient.o in the objects/ directory
 $(SERVER): $(OBJECT_FILES)
